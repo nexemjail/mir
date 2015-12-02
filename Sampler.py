@@ -1,0 +1,218 @@
+import numpy as np
+import librosa
+import matplotlib.pyplot as plt
+import scipy
+import scipy.signal
+from math import sqrt
+import aubio
+import audiodev
+
+
+def compute_variance(signal, mean):
+    N = signal.shape[0]
+    return 1.0 / (N-1) * sum(signal-mean)
+
+
+def normalize_signal(signal, mean, variance):
+    for index in xrange(signal.shape[0]):
+        signal[index] = (signal[index] - mean)/variance
+    return signal
+
+
+def pre_emphasis(signal, alpha= 0.9):
+    new_sig = signal[1:]-alpha*signal[:-1]
+    return np.append(signal[0], new_sig)
+
+
+def window_signal(signal, window_len=32):
+    s=np.r_[signal[window_len-1:0:-1], signal, signal[-1:-window_len:-1]]
+    w = np.hamming(32)
+    return np.convolve(w/w.sum(), s, mode='valid')
+
+
+def compute_mfcc(signal, sample_rate, number_expected=13, num_of_triangular_features=23):
+    return librosa.feature.mfcc(signal,
+                                sample_rate,
+                                n_mfcc=num_of_triangular_features)\
+                                            [:number_expected]
+
+
+def zero_crossing_rate(signal, frame_length=2048):
+    return librosa.feature.zero_crossing_rate(signal, frame_length=frame_length).mean()
+
+
+def temporal_cenroid(signal):
+    # returns centoid in ticks
+    tc = sum(map(lambda (x, y): x*(y*y), enumerate(signal)))/     \
+        sum(map(lambda (x, y): (y*y), enumerate(signal)))
+    return tc
+
+
+def root_mean_square(signal):
+    return sqrt(short_time_energy(signal))
+
+
+def short_time_energy(signal):
+    N = signal.shape[0]
+    s = 0.0
+    for i in xrange(N):
+        s += signal[i]**2
+    return s/N
+
+
+def autocorellation(signal, sample_rate):
+    autocorellation_value = max(librosa.autocorrelate(signal))
+    return autocorellation_value, autocorellation_value/2
+
+
+def energy_entropy(signal, num_of_frames = 32):
+
+    #TODO: write something
+    return None
+
+
+def spectal_roloff(signal, sample_rate):
+    return librosa.feature.spectral_rolloff(signal, sample_rate)
+
+
+def spectral_spread(signal, sample_rate):
+    fft_spectrum = scipy.fft(signal)
+    sum_abs_squared = sum(map(lambda (y,x): abs(x)**2, enumerate(fft_spectrum)))
+    centroid = spectral_centroid(signal, sample_rate).mean()
+
+    ss = sqrt((centroid**2 * sum_abs_squared)/sum_abs_squared)
+
+    print ss, 'spread'
+    return ss
+
+
+def spectral_flux(signal, sample_rate):
+    return NotImplementedError#librosa.feature.
+
+
+def spectral_entropy(signal, sample_rate):
+    return NotImplementedError
+
+
+def spectral_centroid(signal, sample_rate):
+        return librosa.feature.spectral_centroid(signal,sample_rate)
+
+
+
+
+class Sampler(object):
+    def __init__(self, filepath, duration = None):
+        self.mfcc = None
+        self.signal_hammed = None
+        self.normalized_signal = None
+        self.signal_emphased = None
+        if not duration:
+            self.duration = librosa.get_duration(self.signal, sr=self.sample_rate)
+        else:
+            self.duration = duration
+
+        self.signal, self.sample_rate = librosa.load(filepath, duration=duration)
+
+        self.pre_process()
+        self.compute_features()
+
+
+
+
+
+
+
+        '''
+        spectral_centroid = librosa.feature.\
+            spectral_centroid(self.sample,sr = self.frequency)
+        plt.plot(range(spectral_centroid.size),spectral_centroid.T)
+        plt.show()
+
+        spectral_roloff = librosa.feature.spectral_rolloff\
+            (self.sample,sr=self.frequency)
+        plt.plot(range(spectral_roloff.size),spectral_roloff.T)
+        plt.show()
+
+        #flux
+        zero_crossings = librosa.zero_crossings(self.sample,)
+        plt.plot(range(zero_crossings.size),zero_crossings.T)
+        plt.show()
+        #librosa.feature.mfcc()
+        tempo, beats = librosa.beat.beat_track(self.sample, sr  = self.frequency)
+        '''
+
+
+    def pre_process(self):
+        #plt.plot(self.signal,'r',)
+        #plt.show()
+
+        self.normalized_signal = librosa.util.normalize(self.signal)
+
+        self.signal_emphased = pre_emphasis(self.normalized_signal)
+        #plt.plot(self.signal_emphased,'r')
+        #plt.show()
+
+        #self.spectrum = scipy.fft(self.normalized_signal,)
+        #plt.plot(self.spectrum,'r')
+        #plt.show()
+        #self.spectrum = scipy.fft(self.signal_emphased,)
+        #plt.plot(self.spectrum,'y')
+        #plt.show()
+
+        self.signal_hammed = window_signal(self.signal_emphased)
+        #plt.plot(self.signal_hammed)
+        #plt.show()
+
+        #self.signal_mean = self.signal.mean()
+        #self.signal_variance = compute_variance(self.signal, self.signal_mean)
+        #self.normalized_signal = normalize_signal(self.signal, self.signal_mean, self.signal_variance)
+
+    def compute_features(self):
+
+        self.spectral_spread = spectral_spread(self.signal_hammed,self.sample_rate)
+        #self.signal_hammed = self.signal_emphased
+        self.zero_crossing_rate = zero_crossing_rate(self.signal_hammed)
+        print self.zero_crossing_rate
+        self.temporal_centroid = temporal_cenroid(self.signal_hammed)
+        print self.temporal_centroid
+        print self.temporal_centroid / self.sample_rate
+
+        self.root_mean_square = root_mean_square(self.signal)
+        print self.root_mean_square
+
+        self.short_time_energy = short_time_energy(self.signal)
+        print self.short_time_energy
+
+        self.fundamental_period, self.autocorellation = autocorellation(self.signal_hammed, self.sample_rate)
+        print self.fundamental_period, 'fperiod'
+        print self.autocorellation, 'ac'
+
+        self.mfcc = compute_mfcc(self.signal_hammed, self.sample_rate)
+        self.spectral_roloff_mean = spectal_roloff\
+            (self.signal_hammed, self.sample_rate).mean()
+        self.spectral_cenroid_mean = spectral_centroid\
+            (self.signal_hammed, self.sample_rate).mean()
+
+        print self.extract_features()
+
+    def extract_features(self):
+        vector = [0] * 11
+        vector[0] = self.zero_crossing_rate
+        vector[1] = self.temporal_centroid
+        vector[2] = None
+        vector[3] = self.root_mean_square
+        vector[4] = self.fundamental_period
+        vector[5] = self.autocorellation
+        vector[6] = self.spectral_roloff_mean
+        #vector[7] = self.spectral_spread
+        #vector[8] = self.spectral_flux
+        #vector[9] = self.spectral_entropy
+        vector[10] = self.spectral_cenroid_mean
+        mean = self.mfcc.mean(axis = 1)
+        vector = np.append(np.array(vector),mean)
+        return vector
+
+
+if __name__ == "__main__":
+    path = "/media/files/musicsamples/genres/rock/rock.00002.au"
+    sampler = Sampler(path, duration=30)
