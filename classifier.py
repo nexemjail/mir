@@ -12,7 +12,7 @@ import spark_initializer
 import pyspark
 import scipy
 import scipy.signal
-import sleeping_wife as marsyas
+import keras
 
 def convert_audio_to_csv(path):
     for f in os.listdir(path):
@@ -139,7 +139,6 @@ if __name__ == "__main__":
     #plt.plot(onset_envelope[0])
     #plt.show()
 
-    marsyas.beat_histogram()
     tempo, beats = librosa.beat.beat_track(x,)
     plt.plot()
     plt.show()
