@@ -10,6 +10,7 @@ import pymir.SpectralFlux as SpectralFlux
 from math import log
 import sys
 
+
 def compute_variance(signal, mean):
     N = signal.shape[0]
     return 1.0 / (N-1) * sum(signal-mean)
@@ -21,7 +22,7 @@ def normalize_signal(signal, mean, variance):
     return signal
 
 
-def pre_emphasis(signal, alpha= 0.9):
+def pre_emphasis(signal, alpha=0.9):
     new_sig = signal[1:]-alpha*signal[:-1]
     return np.append(signal[0], new_sig)
 
@@ -125,23 +126,16 @@ def spectral_entropy(signal = None, fft_signal = None, num_of_frames =22050 / 50
 
     return entropy
 
+
 def spectral_centroid(signal, sample_rate):
         return librosa.feature.spectral_centroid(signal,sample_rate)
-
-
-
 
 
 class Sampler(object):
     def __init__(self, source, duration = None, sample_rate = None):
         if isinstance(source, basestring):
-
-            self.mfcc = None
-            self.signal_hammed = None
-            self.normalized_signal = None
-            self.signal_emphased = None
             self.signal, self.sample_rate = librosa.load(source, duration=duration)
-            if not duration:
+            if duration is None:
                 self.duration = librosa.get_duration(self.signal, sr=self.sample_rate)
             else:
                 self.duration = duration
@@ -150,7 +144,6 @@ class Sampler(object):
             self.sample_rate = sample_rate
             self.duration = librosa.get_duration(self.signal, sr=sample_rate)
         self.pre_process()
-        #self.compute_features()
 
     def split(self, part_len):
         parts_count = self.duration // part_len
@@ -166,8 +159,9 @@ class Sampler(object):
         #plt.show()
 
         self.normalized_signal = librosa.util.normalize(self.signal)
-
         self.signal_emphased = pre_emphasis(self.normalized_signal)
+        self.signal_hammed = window_signal(self.signal_emphased)
+
         #plt.plot(self.signal_emphased,'r')
         #plt.show()
 
@@ -178,7 +172,6 @@ class Sampler(object):
         #plt.plot(self.spectrum,'y')
         #plt.show()
 
-        self.signal_hammed = window_signal(self.signal_emphased)
         #print self.signal_hammed.shape
 
         #plt.plot(self.signal_hammed)
@@ -238,16 +231,12 @@ class Sampler(object):
         vector[10] = self.spectral_cenroid_mean
         mean = self.mfcc.mean(axis = 1)
         vector = np.append(np.array(vector), mean)
-        #print "features extracted"
         return vector
-
 
 
 def convert(path, duration = 29):
     whole_song = Sampler(path, duration=duration)
     parts = whole_song.split(1)
-    #print len(parts)
-
     samples = []
     for i in xrange(1, len(parts)):
         part = np.append(parts[i-1], parts[i])
@@ -260,4 +249,3 @@ def convert(path, duration = 29):
 if __name__ == "__main__":
     path = "/media/files/musicsamples/genres/pop/pop.00002.au"
     convert(path)
-    #sampler.compute_features()

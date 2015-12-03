@@ -68,7 +68,10 @@ class NeuralNetwork(object):
 
             l[0] = self._data[j]
             for i in xrange(1,self._num_of_layers):
-                l[i] = sigmoid(np.dot(l[i-1], syn[i-1]))
+                try:
+                    l[i] = sigmoid(np.dot(l[i-1], syn[i-1]))
+                except:
+                    i = 5;
                 '''
                 if do_dropout:
                     k = np.random.binomial(

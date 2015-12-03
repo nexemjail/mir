@@ -1,19 +1,20 @@
 import os
 import numpy as np
 import pandas as pd
-import librosa
-import Sampler
+
 from NN import NeuralNetwork
 import time
-import DataValuePair
 from random import shuffle
+'''
 import matplotlib.pyplot as plt
+
 import spark_initializer
 import pyspark
+'''
 import scipy
 import scipy.signal
-import keras
 import Sampler
+
 
 def convert_audio_to_csv(path):
     for f in os.listdir(path):
@@ -24,18 +25,19 @@ def convert_audio_to_csv(path):
             print "going to ", f
             convert_audio_to_csv(place)
         else:
-            get_treats(path, f)
+            compute_treat_matrix(path, f)
 
 
-def get_treats(path, name):
+def compute_treat_matrix(path, name):
     file_name = "/".join((path, name))
-
     duration, chunk_size = 29., .2
 
     unscaled_features = Sampler.convert(file_name, duration)
     frame = pd.DataFrame(unscaled_features)
     p = get_csv_path(path,name)
     frame.to_csv(p)
+    print name, " converted and saved as ", path
+
     '''
     sampler = Sampler.Sampler(file_name, duration)
 
@@ -76,15 +78,11 @@ def get_treats(path, name):
     #plt.show()
 
 
-
-    print name, " converted and saves as ",
-
-
 def scale_features(data):
-    x_min = data.min(axis=1)
-    x_max = data.max(axis=1)
-    for index in xrange(data.shape[1]):
-        data[:, index] = (data[:, index] - x_min)/(x_max - x_min)
+    x_min = data.min(axis=0)
+    x_max = data.max(axis=0)
+    for index in xrange(data.shape[0]):
+        data[index,:] = (data[index,:] - x_min)/(x_max - x_min)
     return data
 
 
@@ -115,15 +113,14 @@ def read_fft_features(path, value):
     return data, values
 
 
-
 def read_features(path,value):
     features = []
     t = time.time()
     for filename in os.listdir(path):
-        if filename.endswith(".csv") and not filename.endswith("scaled.csv"):
+        if filename.endswith("treats29.csv"):
             real_path = "{0}/{1}".format(path, filename)
             array = pd.DataFrame.from_csv(real_path).__array__()
-            features.append(np.asarray(array[:,:3]).ravel())
+            features.append(np.asarray(scale_features(array)).ravel())
     print time.time() - t
     length = len(features)
     data = np.array(features)
@@ -132,7 +129,45 @@ def read_features(path,value):
 
 
 if __name__ == "__main__":
-    convert_all()
+    '''
+    path = '/media/files/musicsamples/genres/pop'
+    features, values = read_features(path,[1,0])
+    path = '/media/files/musicsamples/genres/classical'
+    '''
+
+    path_rock = "/media/files/musicsamples/genres/rock"
+    rock_data, rock_values = read_features(path_rock,[1,0])
+    print rock_data.shape
+    rock = zip(rock_data,rock_values)
+    path_classic = "/media/files/musicsamples/genres/classical"
+    class_data, class_value = read_features(path_classic,[0,1])
+    classical = zip(class_data, class_value)
+    extended_list = rock[:-10]
+    extended_list.extend(classical[:-10])
+    shuffle(extended_list)
+    import sklearn.svm as svm
+    nn = svm.SVC()
+
+    nn = NeuralNetwork(learning_rate=0.00000000000000000000000000000001, num_of_hidden_layers=5, hidden_layer_size=75)
+    data = [k[0] for k in extended_list]
+    print type(data)
+    values = [k[1] for k in extended_list]
+    print type(values)
+    nn.fit(data,values)
+    for i in xrange(10):
+        print nn.predict(rock[-i][0])
+        print rock[-i][1], " pop"
+        print nn.predict(classical[-i][0])
+        print classical[-i][1], " classical"
+
+    #nn.save_synapse_to_file("synapses")
+
+
+
+    #convert_all()
+
+
+
     '''
     x, sr = librosa.load('/media/files/musicsamples/Cantaperme.wav')
     #fft_tranform = scipy.fft(x)
