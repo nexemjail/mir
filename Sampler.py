@@ -8,6 +8,7 @@ import aubio
 import audiodev
 import pymir.SpectralFlux as SpectralFlux
 from math import log
+import sys
 
 def compute_variance(signal, mean):
     N = signal.shape[0]
@@ -27,7 +28,6 @@ def pre_emphasis(signal, alpha= 0.9):
 
 def window_signal(signal, window_len=25):
     w = np.hamming(window_len)
-
     return np.convolve(w/w.sum(), signal, mode='same')
 
 
@@ -57,7 +57,7 @@ def short_time_energy(signal):
     N = signal.shape[0]
     s = 0.0
     for i in xrange(N):
-        s += signal[i]**2
+        s += abs(signal[i]**2)
     return s/N
 
 
@@ -74,7 +74,8 @@ def energy_entropy(signal, num_of_frames = 22050/50):
                           enumerate(subframes))
     entropy = 0
     for frame_index in xrange(num_of_frames):
-        entropy -= e[frame_index] * log(e[frame_index],2)
+        if e[frame_index] != 0:
+            entropy -= e[frame_index] * log(e[frame_index],2)
 
     return entropy
 
@@ -119,7 +120,8 @@ def spectral_entropy(signal = None, fft_signal = None, num_of_frames =22050 / 50
                           enumerate(subframes))
     entropy = 0
     for frame_index in xrange(num_of_frames):
-        entropy -= e[frame_index] * log(e[frame_index],2)
+        if e[frame_index] != 0:
+            entropy -= e[frame_index] * log(e[frame_index],2)
 
     return entropy
 
@@ -127,39 +129,37 @@ def spectral_centroid(signal, sample_rate):
         return librosa.feature.spectral_centroid(signal,sample_rate)
 
 
+
+
+
 class Sampler(object):
-    def __init__(self, filepath, duration = None):
-        self.mfcc = None
-        self.signal_hammed = None
-        self.normalized_signal = None
-        self.signal_emphased = None
-        self.signal, self.sample_rate = librosa.load(filepath, duration=duration)
-        if not duration:
-            self.duration = librosa.get_duration(self.signal, sr=self.sample_rate)
+    def __init__(self, source, duration = None, sample_rate = None):
+        if isinstance(source, basestring):
+
+            self.mfcc = None
+            self.signal_hammed = None
+            self.normalized_signal = None
+            self.signal_emphased = None
+            self.signal, self.sample_rate = librosa.load(source, duration=duration)
+            if not duration:
+                self.duration = librosa.get_duration(self.signal, sr=self.sample_rate)
+            else:
+                self.duration = duration
         else:
-            self.duration = duration
+            self.signal = source
+            self.sample_rate = sample_rate
+            self.duration = librosa.get_duration(self.signal, sr=sample_rate)
         self.pre_process()
-        self.compute_features()
+        #self.compute_features()
 
-        '''
-        spectral_centroid = librosa.feature.\
-            spectral_centroid(self.sample,sr = self.frequency)
-        plt.plot(range(spectral_centroid.size),spectral_centroid.T)
-        plt.show()
+    def split(self, part_len):
+        parts_count = self.duration // part_len
 
-        spectral_roloff = librosa.feature.spectral_rolloff\
-            (self.sample,sr=self.frequency)
-        plt.plot(range(spectral_roloff.size),spectral_roloff.T)
-        plt.show()
+        #print self.duration, part_len
+        #print self.signal_hammed.shape
+        #print part_len
 
-        #flux
-        zero_crossings = librosa.zero_crossings(self.sample,)
-        plt.plot(range(zero_crossings.size),zero_crossings.T)
-        plt.show()
-        #librosa.feature.mfcc()
-        tempo, beats = librosa.beat.beat_track(self.sample, sr  = self.frequency)
-        '''
-
+        return np.split(self.signal_hammed, parts_count)
 
     def pre_process(self):
         #plt.plot(self.signal,'r',)
@@ -179,7 +179,7 @@ class Sampler(object):
         #plt.show()
 
         self.signal_hammed = window_signal(self.signal_emphased)
-        print self.signal_hammed.shape
+        #print self.signal_hammed.shape
 
         #plt.plot(self.signal_hammed)
         #plt.show()
@@ -190,38 +190,38 @@ class Sampler(object):
 
     def compute_features(self):
         self.fft = scipy.real(scipy.fft(self.signal_hammed))
-        print ".",
+        #print ".",
 
         self.spectral_flux = spectral_flux(fft_spectrum=self.fft).mean()
-        print ".",
+        #print ".",
 
         self.spectral_cenroid_mean = spectral_centroid\
             (self.signal_hammed, self.sample_rate).mean()
-        print ".",
+        #print ".",
 
         self.spectral_spread = spectral_spread(spectral_centroid=self.spectral_cenroid_mean, fft_spectrum=self.fft)
-        print ".",
+        #print ".",
         self.spectral_roloff_mean = spectal_roloff\
             (self.signal_hammed, self.sample_rate).mean()
-        print ".",
+        #print ".",
         self.spectral_entropy = spectral_entropy(fft_signal=self.fft)
-        print "spectral features calc!"
+        #print "spectral features calc!"
 
         self.energy_entropy = energy_entropy(self.signal_hammed, self.sample_rate)
-        print ".",
+        #print ".",
         self.zero_crossing_rate = zero_crossing_rate(self.signal_hammed)
-        print ".",
+        #print ".",
         self.temporal_centroid = temporal_cenroid(self.signal_hammed)
-        print ".",
+        #print ".",
         self.root_mean_square = root_mean_square(self.signal)
-        print ".",
+        #print ".",
         self.short_time_energy = short_time_energy(self.signal)
-        print ".",
+        #print ".",
         self.fundamental_period, self.autocorellation = autocorellation(self.signal_hammed, self.sample_rate)
-        print ".",
+        #print ".",
         self.mfcc = compute_mfcc(self.signal_hammed, self.sample_rate)
-        print "signal features calc!"
-        print self.extract_features()
+        #print "signal features calc!"
+        #print self.extract_features()
 
     def extract_features(self):
         vector = [0] * 11
@@ -237,12 +237,27 @@ class Sampler(object):
         vector[9] = self.spectral_entropy
         vector[10] = self.spectral_cenroid_mean
         mean = self.mfcc.mean(axis = 1)
-        vector = np.append(np.array(vector),mean)
-        print "features extracted"
+        vector = np.append(np.array(vector), mean)
+        #print "features extracted"
         return vector
 
 
 
+def convert(path, duration = 29):
+    whole_song = Sampler(path, duration=duration)
+    parts = whole_song.split(1)
+    #print len(parts)
+
+    samples = []
+    for i in xrange(1, len(parts)):
+        part = np.append(parts[i-1], parts[i])
+        sample = Sampler(part, sample_rate=whole_song.sample_rate)
+        sample.compute_features()
+        features = sample.extract_features()
+        samples.append(features)
+    return np.array(samples)
+
 if __name__ == "__main__":
     path = "/media/files/musicsamples/genres/pop/pop.00002.au"
-    sampler = Sampler(path, duration=30)
+    convert(path)
+    #sampler.compute_features()

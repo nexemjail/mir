@@ -13,23 +13,30 @@ import pyspark
 import scipy
 import scipy.signal
 import keras
+import Sampler
 
 def convert_audio_to_csv(path):
     for f in os.listdir(path):
-        if f.endswith('.csv'):
+        if f.endswith('.csv') or f.endswith(".npy"):
             continue
         if not f.endswith('.au'):
             place = path + '/' + f
             print "going to ", f
             convert_audio_to_csv(place)
         else:
-            do_mfcc(path, f)
+            get_treats(path, f)
 
 
-def do_mfcc(path, name):
+def get_treats(path, name):
     file_name = "/".join((path, name))
 
-    duration, chunk_size = 30., .2
+    duration, chunk_size = 29., .2
+
+    unscaled_features = Sampler.convert(file_name, duration)
+    frame = pd.DataFrame(unscaled_features)
+    p = get_csv_path(path,name)
+    frame.to_csv(p)
+    '''
     sampler = Sampler.Sampler(file_name, duration)
 
     plt.hold(False)
@@ -39,7 +46,7 @@ def do_mfcc(path, name):
         plt.show()
 
     #x,fs = librosa.load(file_name, duration=duration)
-
+    '''
     '''
     spectogram = librosa.feature.spectral_bandwidth(x,sr= fs,)[0]
     plt.plot(spectogram)
@@ -67,10 +74,8 @@ def do_mfcc(path, name):
     #plt.hold(b = True)
     #plt.plot(mfcc_transform)
     #plt.show()
-    #mfcc_transform = scale_features(mfcc_transform)
-    #frame = pd.DataFrame(mfcc_transform)
-    #p = get_csv_path(path,name)
-    #frame.to_csv(p)
+
+
 
     print name, " converted and saves as ",
 
@@ -83,8 +88,8 @@ def scale_features(data):
     return data
 
 
-def get_csv_path(path, filename, extra = ""):
-    addition = "_mfcc"
+def get_csv_path(path, filename,addition = "_treats", extra = ""):
+    addition = "_treats29"
     extension = '.csv'
     filename = "".join(filename.split(".")[0:-1])
     return "{0}/{1}{2}{3}{4}".format(path,filename,addition,extra,extension)
@@ -127,8 +132,8 @@ def read_features(path,value):
 
 
 if __name__ == "__main__":
-    #spark_initializer.init_spark()
-    #convert_all()
+    convert_all()
+    '''
     x, sr = librosa.load('/media/files/musicsamples/Cantaperme.wav')
     #fft_tranform = scipy.fft(x)
     #fft_tranform -= fft_tranform.mean()
@@ -160,7 +165,7 @@ if __name__ == "__main__":
     zero_crossing_rate = librosa.feature.zero_crossing_rate(x)
     zcr_for_file = zero_crossing_rate.sum()
     print zcr_for_file
-
+    '''
     '''
     path_rock = "/media/files/musicsamples/genres/rock"
     rock_data, rock_values = read_fft_features(path_rock,[1,0])
@@ -190,7 +195,6 @@ if __name__ == "__main__":
     for line_number in xrange(arr.shape[0]):
         print line_number,": ",min(arr[line_number]), max(arr[line_number]), np.mean(arr[line_number])
     '''
-
 
 
 
