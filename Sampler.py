@@ -4,12 +4,7 @@ import matplotlib.pyplot as plt
 import scipy
 import scipy.signal
 from math import sqrt
-import aubio
-import audiodev
-import pymir.SpectralFlux as SpectralFlux
 from math import log
-import sys
-
 
 def compute_variance(signal, mean):
     N = signal.shape[0]
@@ -30,6 +25,10 @@ def pre_emphasis(signal, alpha=0.9):
 def window_signal(signal, window_len=25):
     w = np.hamming(window_len)
     return np.convolve(w/w.sum(), signal, mode='same')
+
+
+def tempo(signal, sample_rate):
+    return librosa.beat.estimate_tempo(signal, sample_rate)
 
 
 def compute_mfcc(signal, sample_rate, number_expected=13, num_of_triangular_features=23):
@@ -185,6 +184,8 @@ class Sampler(object):
         self.fft = scipy.real(scipy.fft(self.signal_hammed))
         #print ".",
 
+        self.tempo = tempo(self.signal_hammed, self.sample_rate)
+
         self.spectral_flux = spectral_flux(fft_spectrum=self.fft).mean()
         #print ".",
 
@@ -217,6 +218,7 @@ class Sampler(object):
         #print self.extract_features()
 
     def extract_features(self):
+        #TODO: recalculate for tempo add 1 to length
         vector = [0] * 11
         vector[0] = self.zero_crossing_rate
         vector[1] = self.temporal_centroid
@@ -229,9 +231,13 @@ class Sampler(object):
         vector[8] = self.spectral_flux
         vector[9] = self.spectral_entropy
         vector[10] = self.spectral_cenroid_mean
+        #vector[11] = self.tempo
         mean = self.mfcc.mean(axis = 1)
         vector = np.append(np.array(vector), mean)
         return vector
+
+    def get_tempo(self):
+        return self.tempo
 
 
 def convert(path, duration = 29):

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas
+from random import shuffle
 
 
 def sigmoid_derivative(x):
@@ -64,33 +65,34 @@ class NeuralNetwork(object):
         l_error = [None] * self._num_of_layers
         l_delta = [None] * self._num_of_layers
 
-        for j in xrange(self._training_size):
+        for k in xrange(10):
+            shuffle(self._data)
+            for j in xrange(self._training_size):
+                l[0] = self._data[j]
+                for i in xrange(1,self._num_of_layers):
+                    try:
+                        l[i] = sigmoid(np.dot(l[i-1], syn[i-1]))
+                    except:
+                        i = 5;
+                    '''
+                    if do_dropout:
+                        k = np.random.binomial(
+                                    [np.ones((l[i].shape[0],syn[i-1].shape[1]))],\
+                                1 - dropout_percent)[0]
+                        l[i] *= k * (1.0 / (1 - dropout_percent))
+                    '''
+                l_error[self._num_of_layers - 1] = l[self._num_of_layers - 1] - self._results[j]
+                #if j % 5 == 0:
+                    #print "iteration", str(j+1)
+                print "Error: ", str(np.mean(np.abs(l_error[self._num_of_layers-1])))
+                l_delta[self._num_of_layers - 1] = l_error[self._num_of_layers-1] * sigmoid_derivative(l[self._num_of_layers-1])
 
-            l[0] = self._data[j]
-            for i in xrange(1,self._num_of_layers):
-                try:
-                    l[i] = sigmoid(np.dot(l[i-1], syn[i-1]))
-                except:
-                    i = 5;
-                '''
-                if do_dropout:
-                    k = np.random.binomial(
-                                [np.ones((l[i].shape[0],syn[i-1].shape[1]))],\
-                            1 - dropout_percent)[0]
-                    l[i] *= k * (1.0 / (1 - dropout_percent))
-                '''
-            l_error[self._num_of_layers - 1] = l[self._num_of_layers - 1] - self._results[j]
-            #if j % 5 == 0:
-                #print "iteration", str(j+1)
-            print "Error: ", str(np.mean(np.abs(l_error[self._num_of_layers-1])))
-            l_delta[self._num_of_layers - 1] = l_error[self._num_of_layers-1] * sigmoid_derivative(l[self._num_of_layers-1])
+                for i in xrange(self._num_of_layers - 2 ,-1,-1):
+                    l_error[i] = np.dot(l_delta[i+1],syn[i].T)
+                    l_delta[i] = l_error[i] * sigmoid_derivative(l[i])
 
-            for i in xrange(self._num_of_layers - 2 ,-1,-1):
-                l_error[i] = np.dot(l_delta[i+1],syn[i].T)
-                l_delta[i] = l_error[i] * sigmoid_derivative(l[i])
-
-            for i in xrange(self._syn_count):
-                syn[i] -= self._alpha * l[i].T.dot(l_delta[i])
+                for i in xrange(self._syn_count):
+                    syn[i] -= self._alpha * l[i].T.dot(l_delta[i])
 
         self._synapses = syn
         self.save_synapse_to_file(self._data_dir,syn)

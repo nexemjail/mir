@@ -14,6 +14,7 @@ import pyspark
 import scipy
 import scipy.signal
 import Sampler
+from math import sqrt
 
 
 def convert_audio_to_csv(path):
@@ -25,10 +26,10 @@ def convert_audio_to_csv(path):
             print "going to ", f
             convert_audio_to_csv(place)
         else:
-            compute_treat_matrix(path, f)
+            compute_feature_matrix(path, f)
 
 
-def compute_treat_matrix(path, name):
+def compute_feature_matrix(path, name):
     file_name = "/".join((path, name))
     duration, chunk_size = 29., .2
 
@@ -120,7 +121,11 @@ def read_features(path,value):
         if filename.endswith("treats29.csv"):
             real_path = "{0}/{1}".format(path, filename)
             array = pd.DataFrame.from_csv(real_path).__array__()
-            features.append(np.asarray(scale_features(array)).ravel())
+            array = scale_features(array)
+            sd = np.asarray(deviation(array)).ravel()
+            means = np.asarray(average(array)).ravel()
+            vector = combine(means, sd)
+            features.append(vector)
     print time.time() - t
     length = len(features)
     data = np.array(features)
@@ -128,38 +133,84 @@ def read_features(path,value):
     return data, values
 
 
-if __name__ == "__main__":
-    '''
-    path = '/media/files/musicsamples/genres/pop'
-    features, values = read_features(path,[1,0])
-    path = '/media/files/musicsamples/genres/classical'
-    '''
+def average(data):
+    return data.mean(axis = 0)
 
-    path_rock = "/media/files/musicsamples/genres/rock"
-    rock_data, rock_values = read_features(path_rock,[1,0])
-    print rock_data.shape
-    rock = zip(rock_data,rock_values)
+
+def deviation(data):
+    return data.var(axis = 0)
+
+
+def combine(x,y):
+    result_array = np.zeros(shape=(len(x)*2))
+    l = len(result_array)
+    for index in xrange(len(result_array)):
+        if index % 2 == 0:
+            result_array[index] = x[index//2]
+        else:
+            result_array[index] = y[index//2]
+    return result_array
+
+
+def combine_to_data_value_pair(data, value, size):
+    return zip(data,value)[:size]
+
+
+def load_training_pair(path, value):
+    data, values = read_features(path,value)
+    return zip(data, values)
+
+
+def create_training_set(batch_size, *args):
+    batch = list()
+    for arg in args:
+        batch.extend(arg[:batch_size])
+    shuffle(batch)
+    return batch
+
+
+def input_data(data):
+    return [np.array(element[0]) for element in data]
+
+
+def validation_data(data):
+    return [np.array(element[1]) for element in data]
+
+
+if __name__ == "__main__":
+
+    test_size = 15
+
+    path_rock = "/media/files/musicsamples/genres/reggae"
+    rock = load_training_pair(path_rock, [1, 0])
+
     path_classic = "/media/files/musicsamples/genres/classical"
-    class_data, class_value = read_features(path_classic,[0,1])
-    classical = zip(class_data, class_value)
-    extended_list = rock[:-10]
-    extended_list.extend(classical[:-10])
-    shuffle(extended_list)
+    classical = load_training_pair(path_classic, [0, 1])
+
+    extended_list = create_training_set(len(rock) - test_size, rock, classical)
+
+
     import sklearn.svm as svm
+
     nn = svm.SVC()
 
-    nn = NeuralNetwork(learning_rate=0.00000000000000000000000000000001, num_of_hidden_layers=5, hidden_layer_size=75)
-    data = [k[0] for k in extended_list]
-    print type(data)
-    values = [k[1] for k in extended_list]
-    print type(values)
-    nn.fit(data,values)
-    for i in xrange(10):
-        print nn.predict(rock[-i][0])
-        print rock[-i][1], " pop"
-        print nn.predict(classical[-i][0])
-        print classical[-i][1], " classical"
 
+    #nn = NeuralNetwork(learning_rate=0.000001, num_of_hidden_layers=5, hidden_layer_size=75)
+    training_array = input_data(extended_list)
+    validation_array = validation_data(extended_list)
+    validation_array = map(lambda x: int(x[0] == 1), validation_array)
+    nn.fit(training_array, validation_array)
+    error_r = 0
+    error_c = 0
+    for i in xrange(test_size):
+        prediction = nn.predict(rock[-i][0])[0]
+        if prediction != 1:
+            error_r += 1
+        prediction = nn.predict(classical[-i][0])[0]
+        if prediction != 0:
+            error_c += 1
+    print "error_rock, ", float(error_r) / test_size
+    print 'error_c', float(error_c) / test_size
     #nn.save_synapse_to_file("synapses")
 
 
