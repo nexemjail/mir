@@ -131,7 +131,7 @@ def read_features(path,value):
     features = []
     t = time.time()
     for filename in os.listdir(path):
-        if filename.endswith("treats29.csv"):
+        if filename.endswith("s20.csv"):
             real_path = "{0}/{1}".format(path, filename)
             array = pd.DataFrame.from_csv(real_path).__array__()
             array = scale_features(array)
@@ -190,9 +190,9 @@ def validation_data(data):
 
 
 def test_it():
-    test_size = 15
+    test_size = 12
 
-    path_rock = "/media/files/musicsamples/genres/reggae"
+    path_rock = "/media/files/musicsamples/genres/pop"
     rock = load_training_pair(path_rock, [1, 0])
 
     path_classic = "/media/files/musicsamples/genres/classical"
@@ -225,9 +225,9 @@ def test_it():
 
 
 if __name__ == "__main__":
-    init_spark()
-    convert_all(['classical','reggae','blues','jazz'])
-    #test_it()
+    #init_spark()
+    #convert_all(['jazz','blues'])
+    test_it()
 
     #nn.save_synapse_to_file("synapses")
 
