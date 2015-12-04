@@ -14,7 +14,7 @@ import pyspark
 import scipy
 import scipy.signal
 import Sampler
-from math import sqrt
+from spark_initializer import init_spark,get_spark_context
 
 
 def convert_audio_to_csv(path):
@@ -31,14 +31,16 @@ def convert_audio_to_csv(path):
 
 def compute_feature_matrix(path, name):
     file_name = "/".join((path, name))
-    duration, chunk_size = 29., .2
-
+    duration, chunk_size = 20., .2
+    print "started to converting " + file_name
+    t = time.time()
     unscaled_features = Sampler.convert(file_name, duration)
     frame = pd.DataFrame(unscaled_features)
-    p = get_csv_path(path,name)
+    p = get_csv_path(path,name,'_features20')
     frame.to_csv(p)
-    print name, " converted and saved as ", path
 
+    print name, " converted in " ,time.time() - t," saved as", p
+    return None
     '''
     sampler = Sampler.Sampler(file_name, duration)
 
@@ -70,7 +72,6 @@ def compute_feature_matrix(path, name):
     #frame = pd.DataFrame(mean_values)
     #p = get_csv_path(path, name, '_mean')
     #frame.to_csv(p)
-    # TODO: take mean of mfcc in each frequency
 
     #a = librosa.feature.zero_crossing_rate(x)
     #s = librosa.feature.melspectrogram(x,sr = fs)
@@ -88,15 +89,27 @@ def scale_features(data):
 
 
 def get_csv_path(path, filename,addition = "_treats", extra = ""):
-    addition = "_treats29"
     extension = '.csv'
     filename = "".join(filename.split(".")[0:-1])
     return "{0}/{1}{2}{3}{4}".format(path,filename,addition,extra,extension)
 
 
-def convert_all():
-    path = "/media/files/musicsamples/genres"
-    convert_audio_to_csv(path)
+def get_all_file_paths(folderName):
+    path_list = []
+    for f in os.listdir(folderName):
+        if f.endswith(".au"):
+            path_list.append([folderName, f])
+    return path_list
+
+
+def convert_all(list_of_dirs):
+    path = "/media/files/musicsamples/genres/"
+    sc = get_spark_context()
+    for el in list_of_dirs:
+        path_list = get_all_file_paths(path + '/' + el)
+        rdd = sc.parallelize(path_list).cache()
+        rdd.map(lambda y: compute_feature_matrix(y[0],y[1])).collect()
+
 
 
 def read_fft_features(path, value):
@@ -143,7 +156,6 @@ def deviation(data):
 
 def combine(x,y):
     result_array = np.zeros(shape=(len(x)*2))
-    l = len(result_array)
     for index in xrange(len(result_array)):
         if index % 2 == 0:
             result_array[index] = x[index//2]
@@ -177,8 +189,7 @@ def validation_data(data):
     return [np.array(element[1]) for element in data]
 
 
-if __name__ == "__main__":
-
+def test_it():
     test_size = 15
 
     path_rock = "/media/files/musicsamples/genres/reggae"
@@ -211,11 +222,17 @@ if __name__ == "__main__":
             error_c += 1
     print "error_rock, ", float(error_r) / test_size
     print 'error_c', float(error_c) / test_size
+
+
+if __name__ == "__main__":
+    init_spark()
+    convert_all(['classical','reggae','blues','jazz'])
+    #test_it()
+
     #nn.save_synapse_to_file("synapses")
 
 
 
-    #convert_all()
 
 
 

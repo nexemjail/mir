@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
@@ -5,14 +6,14 @@ import scipy
 import scipy.signal
 from math import sqrt
 from math import log
-
+import pandas
 def compute_variance(signal, mean):
-    N = signal.shape[0]
+    N = len(signal)
     return 1.0 / (N-1) * sum(signal-mean)
 
 
 def normalize_signal(signal, mean, variance):
-    for index in xrange(signal.shape[0]):
+    for index in xrange(len(signal)):
         signal[index] = (signal[index] - mean)/variance
     return signal
 
@@ -28,7 +29,7 @@ def window_signal(signal, window_len=25):
 
 
 def tempo(signal, sample_rate):
-    return librosa.beat.estimate_tempo(signal, sample_rate)
+    return librosa.beat.estimate_tempo(signal, sample_rate,start_bpm=1)
 
 
 def compute_mfcc(signal, sample_rate, number_expected=13, num_of_triangular_features=23):
@@ -54,7 +55,7 @@ def root_mean_square(signal):
 
 
 def short_time_energy(signal):
-    N = signal.shape[0]
+    N = len(signal)
     s = 0.0
     for i in xrange(N):
         s += abs(signal[i]**2)
@@ -66,11 +67,10 @@ def autocorellation(signal, sample_rate):
     return autocorellation_value, autocorellation_value/2
 
 
-def energy_entropy(signal, num_of_frames = 22050/50):
-
-    subframes = np.split(signal,num_of_frames)
+def energy_entropy(signal, num_of_frames = 50):
+    subframes = np.array_split(signal,num_of_frames)
     frame_energy = short_time_energy(signal)
-    e = map(lambda (x,y): short_time_energy(y)/frame_energy,
+    e = map(lambda (x, y): short_time_energy(y)/frame_energy,
                           enumerate(subframes))
     entropy = 0
     for frame_index in xrange(num_of_frames):
@@ -103,7 +103,7 @@ def spectral_flux(signal = None, fft_spectrum  = None):
 
     spectralFlux.append(flux)
 
-    for element in xrange(1, fft_spectrum.shape[0]):
+    for element in xrange(1, len(fft_spectrum)):
         prev = fft_spectrum[element-1]
         current = fft_spectrum[element]
         flux = abs(abs(current) - abs(prev))
@@ -114,7 +114,7 @@ def spectral_flux(signal = None, fft_spectrum  = None):
 def spectral_entropy(signal = None, fft_signal = None, num_of_frames =22050 / 50):
     if fft_signal is not None and signal is not None:
         fft_signal = scipy.real(scipy.fft(signal))
-    subframes = np.split(fft_signal, num_of_frames)
+    subframes = np.array_split(fft_signal, num_of_frames)
     frame_energy = short_time_energy(fft_signal)
     e = map(lambda (x,y): short_time_energy(y)/frame_energy,
                           enumerate(subframes))
@@ -151,7 +151,7 @@ class Sampler(object):
         #print self.signal_hammed.shape
         #print part_len
 
-        return np.split(self.signal_hammed, parts_count)
+        return np.array_split(self.signal_emphased, parts_count)
 
     def pre_process(self):
         #plt.plot(self.signal,'r',)
@@ -159,8 +159,6 @@ class Sampler(object):
 
         self.normalized_signal = librosa.util.normalize(self.signal)
         self.signal_emphased = pre_emphasis(self.normalized_signal)
-        self.signal_hammed = window_signal(self.signal_emphased)
-
         #plt.plot(self.signal_emphased,'r')
         #plt.show()
 
@@ -181,10 +179,11 @@ class Sampler(object):
         #self.normalized_signal = normalize_signal(self.signal, self.signal_mean, self.signal_variance)
 
     def compute_features(self):
+        self.signal_hammed = window_signal(self.signal_emphased)
         self.fft = scipy.real(scipy.fft(self.signal_hammed))
         #print ".",
 
-        self.tempo = tempo(self.signal_hammed, self.sample_rate)
+        #self.tempo = tempo(self.signal_hammed, self.sample_rate)
 
         self.spectral_flux = spectral_flux(fft_spectrum=self.fft).mean()
         #print ".",
@@ -201,7 +200,7 @@ class Sampler(object):
         self.spectral_entropy = spectral_entropy(fft_signal=self.fft)
         #print "spectral features calc!"
 
-        self.energy_entropy = energy_entropy(self.signal_hammed, self.sample_rate)
+        self.energy_entropy = energy_entropy(self.signal_hammed)
         #print ".",
         self.zero_crossing_rate = zero_crossing_rate(self.signal_hammed)
         #print ".",
@@ -218,20 +217,19 @@ class Sampler(object):
         #print self.extract_features()
 
     def extract_features(self):
-        #TODO: recalculate for tempo add 1 to length
-        vector = [0] * 11
-        vector[0] = self.zero_crossing_rate
-        vector[1] = self.temporal_centroid
-        vector[2] = self.energy_entropy
-        vector[3] = self.root_mean_square
-        vector[4] = self.fundamental_period
-        vector[5] = self.autocorellation
-        vector[6] = self.spectral_roloff_mean
-        vector[7] = self.spectral_spread
-        vector[8] = self.spectral_flux
-        vector[9] = self.spectral_entropy
-        vector[10] = self.spectral_cenroid_mean
-        #vector[11] = self.tempo
+        vector = list()
+        vector += [self.zero_crossing_rate]
+        vector += [self.temporal_centroid]
+        vector += [self.energy_entropy]
+        vector += [self.root_mean_square]
+        vector += [self.fundamental_period]
+        vector += [self.autocorellation]
+        vector += [self.spectral_roloff_mean]
+        vector += [self.spectral_spread]
+        vector += [self.spectral_flux]
+        vector += [self.spectral_entropy]
+        vector += [self.spectral_cenroid_mean]
+        #vector += [self.tempo]
         mean = self.mfcc.mean(axis = 1)
         vector = np.append(np.array(vector), mean)
         return vector
@@ -240,9 +238,9 @@ class Sampler(object):
         return self.tempo
 
 
-def convert(path, duration = 29):
+def convert(path, duration = 20):
     whole_song = Sampler(path, duration=duration)
-    parts = whole_song.split(1)
+    parts = whole_song.split(0.1)
     samples = []
     for i in xrange(1, len(parts)):
         part = np.append(parts[i-1], parts[i])
@@ -254,4 +252,7 @@ def convert(path, duration = 29):
 
 if __name__ == "__main__":
     path = "/media/files/musicsamples/genres/pop/pop.00002.au"
-    convert(path)
+    t = time.time()
+    df = pandas.DataFrame(convert(path))
+    print time.time() - t
+    df.to_csv("/media/files/file.csv")
