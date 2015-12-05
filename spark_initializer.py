@@ -1,10 +1,10 @@
 import os
 import sys
 from pyspark import SparkContext, SparkConf
+import spark_path
 
 def init_spark():
-    os.environ['SPARK_HOME'] = "/home/nexemjail/spark-1.5.2-bin-hadoop2.6"
-    sys.path.append("/home/nexemjail/spark-1.5.2-bin-hadoop2.6/python")
+	return spark_path.init_spark()
 
 
 def get_spark_context():
