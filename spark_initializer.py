@@ -1,18 +1,11 @@
 import os
 import sys
 from pyspark import SparkContext, SparkConf
-<<<<<<< HEAD
 import spark_pathfinder
 
 
 def init_spark():
     return spark_pathfinder.init_spark()
-=======
-import spark_path
-
-def init_spark():
-	return spark_path.init_spark()
->>>>>>> master
 
 
 def get_spark_context():
