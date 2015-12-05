@@ -7,6 +7,8 @@ import scipy.signal
 from math import sqrt
 from math import log
 import pandas
+
+
 def compute_variance(signal, mean):
     N = len(signal)
     return 1.0 / (N-1) * sum(signal-mean)

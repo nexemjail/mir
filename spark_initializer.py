@@ -1,10 +1,11 @@
 import os
 import sys
 from pyspark import SparkContext, SparkConf
+import spark_pathfinder
+
 
 def init_spark():
-    os.environ['SPARK_HOME'] = "/home/nexemjail/spark-1.5.2-bin-hadoop2.6"
-    sys.path.append("/home/nexemjail/spark-1.5.2-bin-hadoop2.6/python")
+    return spark_pathfinder.init_spark()
 
 
 def get_spark_context():
@@ -14,3 +15,10 @@ def get_spark_context():
     .setMaster('master')
     sc = SparkContext('local[*]',conf = conf,)
     return sc
+
+
+'''''
+    раскрыть методы(чтоб побольше было)
+    запараллелиить сэмплинг по частям на тредах
+    обучение на нескольких методах и пойдет
+'''''

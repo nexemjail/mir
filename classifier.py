@@ -155,7 +155,7 @@ def deviation(data):
 
 
 def combine(x,y):
-    result_array = np.zeros(shape=(len(x)*2))
+    result_array = np.zeros(shape=(len(x) + len(y)))
     for index in xrange(len(result_array)):
         if index % 2 == 0:
             result_array[index] = x[index//2]
@@ -220,17 +220,18 @@ def test_it():
         prediction = nn.predict(classical[-i][0])[0]
         if prediction != 0:
             error_c += 1
-    print "error_rock, ", float(error_r) / test_size
-    print 'error_c', float(error_c) / test_size
+    print "error_rock, ", float(error_r) / test_size * 100
+    print 'error_c', float(error_c) / test_size * 100
 
 
 if __name__ == "__main__":
-    #init_spark()
-    #convert_all(['jazz','blues'])
-    test_it()
+    init_spark()
+    convert_all(['hiphop'])
+    #test_it()
 
     #nn.save_synapse_to_file("synapses")
-
+    #spudi lalka sasai
+    #Will See how to sasi
 
 
 
