@@ -31,16 +31,15 @@ def convert_audio_to_csv(path):
 
 def compute_feature_matrix(path, name):
     file_name = "/".join((path, name))
-    duration, chunk_size = 20., .2
+    duration, chunk_size = 30., .2
     print "started to converting " + file_name
     t = time.time()
     unscaled_features = Sampler.convert(file_name, duration)
     frame = pd.DataFrame(unscaled_features)
-    p = get_csv_path(path,name,'_features20')
+    p = get_csv_path(path,name,'_features30new')
     frame.to_csv(p)
-
     print name, " converted in " ,time.time() - t," saved as", p
-    return None
+
     '''
     sampler = Sampler.Sampler(file_name, duration)
 
@@ -192,16 +191,18 @@ def validation_data(data):
 def test_it():
     test_size = 12
 
-    path_rock = "/media/files/musicsamples/genres/pop"
+    path_rock = "/media/files/musicsamples/genres/metal"
     rock = load_training_pair(path_rock, [1, 0])
 
-    path_classic = "/media/files/musicsamples/genres/classical"
+    path_classic = "/media/files/musicsamples/genres/reggae"
     classical = load_training_pair(path_classic, [0, 1])
 
     extended_list = create_training_set(len(rock) - test_size, rock, classical)
 
 
     import sklearn.svm as svm
+    import sklearn.svm
+    import sklearn.cluster
 
     nn = svm.SVC()
 
@@ -220,14 +221,14 @@ def test_it():
         prediction = nn.predict(classical[-i][0])[0]
         if prediction != 0:
             error_c += 1
-    print "error_rock, ", float(error_r) / test_size * 100
-    print 'error_c', float(error_c) / test_size * 100
+    print "error_rock, ", float(error_r) / test_size * 100, '%'
+    print 'error_c', float(error_c) / test_size * 100, '%'
 
 
 if __name__ == "__main__":
-    init_spark()
-    convert_all(['hiphop'])
-    #test_it()
+    #init_spark()
+    #convert_all(['hiphop'])
+    test_it()
 
     #nn.save_synapse_to_file("synapses")
     #spudi lalka sasai

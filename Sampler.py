@@ -7,11 +7,12 @@ import scipy.signal
 from math import sqrt
 from math import log
 import pandas
+import scipy.signal.spectral
 
 
 def compute_variance(signal, mean):
     N = len(signal)
-    return 1.0 / (N-1) * sum(signal-mean)
+    return 1.0 / (N-1) * np.sum(signal-mean)
 
 
 def normalize_signal(signal, mean, variance):
@@ -30,25 +31,20 @@ def window_signal(signal, window_len=25):
     return np.convolve(w/w.sum(), signal, mode='same')
 
 
-def tempo(signal, sample_rate):
-    return librosa.beat.estimate_tempo(signal, sample_rate,start_bpm=1)
+def zero_crossing_rate(signal):
+    N = len(signal)
+    zcr = 0
+    for i in xrange(1,N):
+        zcr += np.abs(np.sign(signal[i]) - np.sign(signal[i-1]))
+    zcr /= (2.0 * N)
+    #return librosa.feature.zero_crossing_rate(signal).mean()
+    return zcr
 
 
-def compute_mfcc(signal, sample_rate, number_expected=13, num_of_triangular_features=23):
-    return librosa.feature.mfcc(signal,
-                                sample_rate,
-                                n_mfcc=num_of_triangular_features)\
-                                            [:number_expected]
-
-
-def zero_crossing_rate(signal, frame_length=2048):
-    return librosa.feature.zero_crossing_rate(signal, frame_length=frame_length).mean()
-
-
-def temporal_cenroid(signal):
+def temporal_centroid(signal):
     # returns centoid in ticks
-    tc = sum(map(lambda (x, y): x*(y*y), enumerate(signal)))/     \
-        sum(map(lambda (x, y): (y*y), enumerate(signal)))
+    tc = np.sum(map(lambda (x, y): x*(y*y), enumerate(signal)))/     \
+        np.sum(map(lambda (x, y): (y*y), enumerate(signal)))
     return tc
 
 
@@ -65,8 +61,13 @@ def short_time_energy(signal):
 
 
 def autocorellation(signal, sample_rate):
-    autocorellation_value = max(librosa.autocorrelate(signal))
-    return autocorellation_value, autocorellation_value/2
+    #autocorellation_value = max(librosa.autocorrelate(signal))
+    signal_length = len(signal)
+    power_spectrum = np.abs(scipy.fft(signal, n=2 * signal_length + 1 ))**2
+    auto_corr = max(np.real(scipy.ifft(power_spectrum))[:])
+    #if autocorellation_value == auto_corr:
+    #    print 'superAllah0'
+    return auto_corr, auto_corr/2
 
 
 def energy_entropy(signal, num_of_frames = 50):
@@ -82,12 +83,10 @@ def energy_entropy(signal, num_of_frames = 50):
     return entropy
 
 
-def spectal_roloff(signal, sample_rate):
-    return librosa.feature.spectral_rolloff(signal, sample_rate)
+
 
 
 def spectral_spread(spectral_centroid, signal = None, fft_spectrum = None):
-
     if fft_spectrum is None and signal is not None:
         fft_spectrum = scipy.real(scipy.fft(signal))
     sum_abs_squared = sum(map(lambda (y,x): abs(x)**2, enumerate(fft_spectrum)))
@@ -98,19 +97,19 @@ def spectral_spread(spectral_centroid, signal = None, fft_spectrum = None):
 def spectral_flux(signal = None, fft_spectrum  = None):
     if fft_spectrum is None and signal is not None:
         fft_spectrum = scipy.real(scipy.fft(signal))
-    spectralFlux = []
+    spectral_flux = []
     flux = 0
     for element in fft_spectrum:
         flux += abs(element)
 
-    spectralFlux.append(flux)
+    spectral_flux.append(flux)
 
     for element in xrange(1, len(fft_spectrum)):
         prev = fft_spectrum[element-1]
         current = fft_spectrum[element]
         flux = abs(abs(current) - abs(prev))
-        spectralFlux.append(flux)
-    return np.array(spectralFlux)
+        spectral_flux.append(flux)
+    return np.array(spectral_flux)
 
 
 def spectral_entropy(signal = None, fft_signal = None, num_of_frames =22050 / 50):
@@ -127,9 +126,21 @@ def spectral_entropy(signal = None, fft_signal = None, num_of_frames =22050 / 50
 
     return entropy
 
+#TODO: rewrite it too!
+def compute_mfcc(signal, sample_rate, number_expected=13, num_of_triangular_features=23):
+    return librosa.feature.mfcc(signal,
+                                sample_rate,
+                                n_mfcc=num_of_triangular_features)\
+                                            [:number_expected]
 
+#TODO: rewrite it
+def spectal_roloff(signal, sample_rate):
+    return librosa.feature.spectral_rolloff(signal, sample_rate)
+
+
+#TODO: rewrite it
 def spectral_centroid(signal, sample_rate):
-        return librosa.feature.spectral_centroid(signal,sample_rate)
+    return librosa.feature.spectral_centroid(signal,sample_rate)
 
 
 class Sampler(object):
@@ -183,6 +194,7 @@ class Sampler(object):
     def compute_features(self):
         self.signal_hammed = window_signal(self.signal_emphased)
         self.fft = scipy.real(scipy.fft(self.signal_hammed))
+        self.spectogram = librosa.feature.mfcc()
         #print ".",
 
         #self.tempo = tempo(self.signal_hammed, self.sample_rate)
@@ -206,7 +218,7 @@ class Sampler(object):
         #print ".",
         self.zero_crossing_rate = zero_crossing_rate(self.signal_hammed)
         #print ".",
-        self.temporal_centroid = temporal_cenroid(self.signal_hammed)
+        self.temporal_centroid = temporal_centroid(self.signal_hammed)
         #print ".",
         self.root_mean_square = root_mean_square(self.signal)
         #print ".",
@@ -251,6 +263,7 @@ def convert(path, duration = 20):
         features = sample.extract_features()
         samples.append(features)
     return np.array(samples)
+
 
 if __name__ == "__main__":
     path = "/media/files/musicsamples/genres/pop/pop.00002.au"

@@ -1,5 +1,4 @@
-import os
-import sys
+ # -*- coding: utf8 -*-
 from pyspark import SparkContext, SparkConf
 import spark_pathfinder
 
