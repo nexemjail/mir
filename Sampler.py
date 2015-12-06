@@ -7,8 +7,9 @@ import scipy.signal
 from math import sqrt
 from math import log
 import pandas
+from multiprocessing import Pool
+import threading
 import scipy.signal.spectral
-
 
 def compute_variance(signal, mean):
     N = len(signal)
@@ -244,6 +245,35 @@ class Sampler(object):
         vector = np.append(np.array(vector), mean)
         return vector
 
+
+# start of process_converting
+
+#variable to store whole_song on a global lvl to call Sampler in take_feature
+'''
+song
+
+
+def take_feature(part):
+    global song
+    sample = Sampler(part, sample_rate=song.sample_rate)
+    sample.compute_features()
+    feature = sample.extract_features()
+    return feature
+
+
+def convert(path, duration=20):
+    whole_song = Sampler(path, duration=duration)
+    global song
+    song = whole_song
+
+    parts = whole_song.split(0.1)
+    part_arr = [np.append(parts[i-1], parts[i]) for i in xrange(1, len(parts))]
+
+    pl = Pool(4)
+    samples = pl.map(take_feature, part_arr)
+    return np.array(samples)
+'''
+# end of process_converting
 
 def convert(path, duration = 20):
     whole_song = Sampler(path, duration=duration)
