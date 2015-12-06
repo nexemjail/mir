@@ -9,6 +9,7 @@ import glob
 root_folder = "/media/files/musicsamples/genres"
 genre_list = ["classical", "jazz", "pop","rock","metal"]
 
+
 def compute_fft_for_folder(folderpath):
     for filename in os.listdir(folderpath):
         real_path = os.path.join(folderpath,filename)
@@ -16,6 +17,7 @@ def compute_fft_for_folder(folderpath):
             create_fft(real_path)
         elif os.path.isdir(real_path):
             compute_fft_for_folder(real_path)
+
 
 def create_fft(filename):
     X, sample_rate = librosa.load(filename)
