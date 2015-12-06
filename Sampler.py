@@ -34,7 +34,7 @@ def window_signal(signal, window_len=25):
 def zero_crossing_rate(signal):
     N = len(signal)
     zcr = 0
-    for i in xrange(1,N):
+    for i in xrange(1, N):
         zcr += np.abs(np.sign(signal[i]) - np.sign(signal[i-1]))
     zcr /= (2.0 * N)
     #return librosa.feature.zero_crossing_rate(signal).mean()
@@ -65,8 +65,6 @@ def autocorellation(signal, sample_rate):
     signal_length = len(signal)
     power_spectrum = np.abs(scipy.fft(signal, n=2 * signal_length + 1 ))**2
     auto_corr = max(np.real(scipy.ifft(power_spectrum))[:])
-    #if autocorellation_value == auto_corr:
-    #    print 'superAllah0'
     return auto_corr, auto_corr/2
 
 
@@ -81,9 +79,6 @@ def energy_entropy(signal, num_of_frames = 50):
             entropy -= e[frame_index] * log(e[frame_index],2)
 
     return entropy
-
-
-
 
 
 def spectral_spread(spectral_centroid, signal = None, fft_spectrum = None):
@@ -117,8 +112,8 @@ def spectral_entropy(signal = None, fft_signal = None, num_of_frames =22050 / 50
         fft_signal = scipy.real(scipy.fft(signal))
     subframes = np.array_split(fft_signal, num_of_frames)
     frame_energy = short_time_energy(fft_signal)
-    e = map(lambda (x,y): short_time_energy(y)/frame_energy,
-                          enumerate(subframes))
+    e = map(lambda (x, y): short_time_energy(y)/frame_energy,
+            enumerate(subframes))
     entropy = 0
     for frame_index in xrange(num_of_frames):
         if e[frame_index] != 0:
@@ -133,10 +128,12 @@ def compute_mfcc(signal, sample_rate, number_expected=13, num_of_triangular_feat
                                 n_mfcc=num_of_triangular_features)\
                                             [:number_expected]
 
+
 #TODO: rewrite it
 def spectal_roloff(signal, sample_rate):
-    return librosa.feature.spectral_rolloff(signal, sample_rate)
+    return librosa.feature.spectral_rolloff(signal, sample_rate,)
 
+plt.specgram
 
 #TODO: rewrite it
 def spectral_centroid(signal, sample_rate):
@@ -194,7 +191,6 @@ class Sampler(object):
     def compute_features(self):
         self.signal_hammed = window_signal(self.signal_emphased)
         self.fft = scipy.real(scipy.fft(self.signal_hammed))
-        self.spectogram = librosa.feature.mfcc()
         #print ".",
 
         #self.tempo = tempo(self.signal_hammed, self.sample_rate)
@@ -248,13 +244,10 @@ class Sampler(object):
         vector = np.append(np.array(vector), mean)
         return vector
 
-    def get_tempo(self):
-        return self.tempo
-
 
 def convert(path, duration = 20):
     whole_song = Sampler(path, duration=duration)
-    parts = whole_song.split(0.1)
+    parts = whole_song.split(0.03)
     samples = []
     for i in xrange(1, len(parts)):
         part = np.append(parts[i-1], parts[i])

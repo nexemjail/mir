@@ -1,20 +1,14 @@
 import os
 import numpy as np
 import pandas as pd
-
-from NN import NeuralNetwork
 import time
 from random import shuffle
-'''
-import matplotlib.pyplot as plt
-
-import spark_initializer
-import pyspark
-'''
 import scipy
 import scipy.signal
 import Sampler
-from spark_initializer import init_spark,get_spark_context
+from spark_initializer import init_spark, get_spark_context
+import data_loader as loader
+from collections import OrderedDict
 
 
 def convert_audio_to_csv(path):
@@ -31,7 +25,7 @@ def convert_audio_to_csv(path):
 
 def compute_feature_matrix(path, name):
     file_name = "/".join((path, name))
-    duration, chunk_size = 30., .2
+    duration = 30.
     print "started to converting " + file_name
     t = time.time()
     unscaled_features = Sampler.convert(file_name, duration)
@@ -79,14 +73,6 @@ def compute_feature_matrix(path, name):
     #plt.show()
 
 
-def scale_features(data):
-    x_min = data.min(axis=0)
-    x_max = data.max(axis=0)
-    for index in xrange(data.shape[0]):
-        data[index,:] = (data[index,:] - x_min)/(x_max - x_min)
-    return data
-
-
 def get_csv_path(path, filename,addition = "_treats", extra = ""):
     extension = '.csv'
     filename = "".join(filename.split(".")[0:-1])
@@ -101,14 +87,18 @@ def get_all_file_paths(folderName):
     return path_list
 
 
-def convert_all(list_of_dirs):
+def convert_all(list_of_dirs, use_spark = False):
+    if use_spark:
+        init_spark()
+        sc = get_spark_context()
     path = "/media/files/musicsamples/genres/"
-    sc = get_spark_context()
     for el in list_of_dirs:
         path_list = get_all_file_paths(path + '/' + el)
-        rdd = sc.parallelize(path_list).cache()
-        rdd.map(lambda y: compute_feature_matrix(y[0],y[1])).collect()
-
+        if not use_spark:
+            [compute_feature_matrix(y[0],y[1]) for y in path_list]
+        else:
+            rdd = sc.parallelize(path_list).cache()
+            rdd.map(lambda y: compute_feature_matrix(y[0],y[1])).collect()
 
 
 def read_fft_features(path, value):
@@ -126,108 +116,76 @@ def read_fft_features(path, value):
     return data, values
 
 
-def read_features(path,value):
-    features = []
-    t = time.time()
-    for filename in os.listdir(path):
-        if filename.endswith("s20.csv"):
-            real_path = "{0}/{1}".format(path, filename)
-            array = pd.DataFrame.from_csv(real_path).__array__()
-            array = scale_features(array)
-            sd = np.asarray(deviation(array)).ravel()
-            means = np.asarray(average(array)).ravel()
-            vector = combine(means, sd)
-            features.append(vector)
-    print time.time() - t
-    length = len(features)
-    data = np.array(features)
-    values = np.array([value] * length)
-    return data, values
+def create_sets(batch_size, array_of_dv_sets):
+    training_set = []
+    test_set = []
+    for arg in array_of_dv_sets:
+        training_set.extend(arg[:batch_size])
+        test_set.extend(arg[:-batch_size])
+    shuffle(training_set)
+    return training_set, test_set
 
 
-def average(data):
-    return data.mean(axis = 0)
+def map_dataset(dataset, mapper):
+    mapped_dataset = []
+    for element in dataset:
+        mapped_dataset.append((element[0], mapper[element[1]]))
+    return mapped_dataset
 
 
-def deviation(data):
-    return data.var(axis = 0)
-
-
-def combine(x,y):
-    result_array = np.zeros(shape=(len(x) + len(y)))
-    for index in xrange(len(result_array)):
-        if index % 2 == 0:
-            result_array[index] = x[index//2]
-        else:
-            result_array[index] = y[index//2]
-    return result_array
-
-
-def combine_to_data_value_pair(data, value, size):
-    return zip(data,value)[:size]
-
-
-def load_training_pair(path, value):
-    data, values = read_features(path,value)
-    return zip(data, values)
-
-
-def create_training_set(batch_size, *args):
-    batch = list()
-    for arg in args:
-        batch.extend(arg[:batch_size])
-    shuffle(batch)
-    return batch
-
-
-def input_data(data):
-    return [np.array(element[0]) for element in data]
-
-
-def validation_data(data):
-    return [np.array(element[1]) for element in data]
+def separate(dataset):
+    return [t[0] for t in dataset], [t[1] for t in dataset]
 
 
 def test_it():
-    test_size = 12
 
-    path_rock = "/media/files/musicsamples/genres/metal"
-    rock = load_training_pair(path_rock, [1, 0])
+    dataset_size = 100
+    test_size = 10
 
-    path_classic = "/media/files/musicsamples/genres/reggae"
-    classical = load_training_pair(path_classic, [0, 1])
+    dataloader = loader.Loader(['rock','classical','pop','blues'],'30new.csv','/media/files/musicsamples/genres')
+    datasets = dataloader.get_dataset()
+    dv_pairs = []
+    for v in datasets.values():
+        dv_pairs.append(loader.combine_to_data_value_pair(v[0], v[1]))
 
-    extended_list = create_training_set(len(rock) - test_size, rock, classical)
+    genre_mapper = OrderedDict([
+        ('rock',0),
+        ('classical',1),
+        ('blues',2),
+        ('pop',3),
+        ('metal',4),
+        ('reggae',5),
+        ('country',6),
+        ('disco',7),
+        ('jazz',8)
+    ])
 
-
+    training_set, test_set = create_sets(dataset_size - test_size, dv_pairs)
+    training_set = map_dataset(training_set, genre_mapper)
+    test_set = map_dataset(test_set, genre_mapper)
     import sklearn.svm as svm
-    import sklearn.svm
-    import sklearn.cluster
 
     nn = svm.SVC()
 
+    training_data, training_values = separate(training_set)
+    nn.fit(training_data, training_values)
 
-    #nn = NeuralNetwork(learning_rate=0.000001, num_of_hidden_layers=5, hidden_layer_size=75)
-    training_array = input_data(extended_list)
-    validation_array = validation_data(extended_list)
-    validation_array = map(lambda x: int(x[0] == 1), validation_array)
-    nn.fit(training_array, validation_array)
-    error_r = 0
-    error_c = 0
-    for i in xrange(test_size):
-        prediction = nn.predict(rock[-i][0])[0]
-        if prediction != 1:
-            error_r += 1
-        prediction = nn.predict(classical[-i][0])[0]
-        if prediction != 0:
-            error_c += 1
-    print "error_rock, ", float(error_r) / test_size * 100, '%'
-    print 'error_c', float(error_c) / test_size * 100, '%'
+    mistakes = [0] * len(genre_mapper)
+    truth = [0] * len(genre_mapper)
 
+    for item in test_set:
+        if nn.predict(item[0]) == item[1]:
+            truth[item[1]] +=1
+        else:
+            mistakes[item[1]] += 1
+
+    print genre_mapper.keys()
+    print genre_mapper.values()
+    print truth
+    print mistakes
 
 if __name__ == "__main__":
-    #init_spark()
-    #convert_all(['hiphop'])
+    #convert_all(['hiphop','jazz','rock','blues','metal','pop','classical','reggae','disco','country'], True)
     test_it()
 
     #nn.save_synapse_to_file("synapses")
