@@ -9,7 +9,9 @@ import Sampler
 from spark_initializer import init_spark, get_spark_context
 import data_loader as loader
 from collections import OrderedDict
-
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix as conf_matrix
+import pylab as pl
 
 def convert_audio_to_csv(path):
     for f in os.listdir(path):
@@ -25,26 +27,15 @@ def convert_audio_to_csv(path):
 
 def compute_feature_matrix(path, name):
     file_name = "/".join((path, name))
-    duration = 30.
+    duration, half_part_length = 30., 0.03
     print "started to converting " + file_name
     t = time.time()
-    unscaled_features = Sampler.convert(file_name, duration)
+    unscaled_features = Sampler.convert(file_name, duration,half_part_length)
     frame = pd.DataFrame(unscaled_features)
     p = get_csv_path(path,name,'_features30new')
     frame.to_csv(p)
     print name, " converted in " ,time.time() - t," saved as", p
 
-    '''
-    sampler = Sampler.Sampler(file_name, duration)
-
-    plt.hold(False)
-    splitted = np.array_split(sampler.mel_spectrum,duration/chunk_size, axis=1)
-    for i in xrange(int(duration/chunk_size)):
-        plt.plot(splitted[i])
-        plt.show()
-
-    #x,fs = librosa.load(file_name, duration=duration)
-    '''
     '''
     spectogram = librosa.feature.spectral_bandwidth(x,sr= fs,)[0]
     plt.plot(spectogram)
@@ -142,7 +133,7 @@ def test_it():
     dataset_size = 100
     test_size = 10
 
-    dataloader = loader.Loader(['rock','classical','pop','blues'],'30new.csv','/media/files/musicsamples/genres')
+    dataloader = loader.Loader(['rock','classical'],'30new.csv','/media/files/musicsamples/genres')
     datasets = dataloader.get_dataset()
     dv_pairs = []
     for v in datasets.values():
@@ -170,22 +161,41 @@ def test_it():
     training_data, training_values = separate(training_set)
     nn.fit(training_data, training_values)
 
-    mistakes = [0] * len(genre_mapper)
-    truth = [0] * len(genre_mapper)
+    N = len(genre_mapper)
+    confusion_matrix = np.zeros((N, N))
+
+    cm = conf_matrix([nn.predict(item[0])for item in test_set], [item[1] for item in test_set])
+    pl.matshow(cm)
+    pl.title('Confusion matrix of the classifier')
+    pl.colorbar()
+    pl.show()
+    accuracy = [None] * N
+    for i in xrange(N):
+        true = confusion_matrix[i,i]
+        num_of_results = np.sum(confusion_matrix[i,:])
+        if num_of_results != 0:
+            accuracy[i] = float(true)/num_of_results * 100
 
     for item in test_set:
-        if nn.predict(item[0]) == item[1]:
-            truth[item[1]] +=1
-        else:
-            mistakes[item[1]] += 1
+        prediction = nn.predict(item[0])
+        real_value = item[1]
+        confusion_matrix[real_value, prediction] += 1
 
     print genre_mapper.keys()
     print genre_mapper.values()
-    print truth
-    print mistakes
+    genre_list = [k for (k,v) in genre_mapper.iteritems()]
+    for index in xrange(N):
+        print confusion_matrix[index,:],
+        print genre_list[index]
+    plt.imshow(confusion_matrix, interpolation='nearest')
+    plt.xticks(range(N), genre_list)
+    plt.yticks(range(N), genre_list)
+    plt.show()
+
+
 
 if __name__ == "__main__":
-    #convert_all(['hiphop','jazz','rock','blues','metal','pop','classical','reggae','disco','country'], True)
+    #convert_all(['hiphop','jazz','rock','blues','metal','pop','classical','reggae','disco','country'], False)
     test_it()
 
     #nn.save_synapse_to_file("synapses")

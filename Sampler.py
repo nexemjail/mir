@@ -11,6 +11,7 @@ from multiprocessing import Pool
 import threading
 import scipy.signal.spectral
 
+
 def compute_variance(signal, mean):
     N = len(signal)
     return 1.0 / (N-1) * np.sum(signal-mean)
@@ -249,8 +250,8 @@ class Sampler(object):
 # start of process_converting
 
 #variable to store whole_song on a global lvl to call Sampler in take_feature
-'''
-song
+
+global song
 
 
 def take_feature(part):
@@ -261,23 +262,24 @@ def take_feature(part):
     return feature
 
 
-def convert(path, duration=20):
+def convert(path, duration=30.0, half_part_length = 0.1):
     whole_song = Sampler(path, duration=duration)
     global song
     song = whole_song
 
-    parts = whole_song.split(0.1)
+    parts = whole_song.split(half_part_length)
     part_arr = [np.append(parts[i-1], parts[i]) for i in xrange(1, len(parts))]
 
     pl = Pool(4)
     samples = pl.map(take_feature, part_arr)
     return np.array(samples)
-'''
 # end of process_converting
 
-def convert(path, duration = 20):
+
+'''
+def convert(path, duration = 20, half_part_length = 0.1):
     whole_song = Sampler(path, duration=duration)
-    parts = whole_song.split(0.03)
+    parts = whole_song.split(half_part_length)
     samples = []
     for i in xrange(1, len(parts)):
         part = np.append(parts[i-1], parts[i])
@@ -286,7 +288,7 @@ def convert(path, duration = 20):
         features = sample.extract_features()
         samples.append(features)
     return np.array(samples)
-
+'''
 
 if __name__ == "__main__":
     path = "/media/files/musicsamples/genres/pop/pop.00002.au"
