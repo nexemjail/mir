@@ -63,5 +63,5 @@ target/
 
 spark_path.py
 >>>>>>> .merge_file_a05996
-.idea/workspace.xml
+.idea/*
 .fuse_hidden0000207300000003
