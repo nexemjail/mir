@@ -71,7 +71,7 @@ def autocorellation(signal, sample_rate):
 
 
 def energy_entropy(signal, num_of_frames = 50):
-    subframes = np.array_split(signal,num_of_frames)
+    subframes = np.array_split(signal, num_of_frames)
     frame_energy = short_time_energy(signal)
     e = map(lambda (x, y): short_time_energy(y)/frame_energy,
                           enumerate(subframes))
@@ -135,7 +135,6 @@ def compute_mfcc(signal, sample_rate, number_expected=13, num_of_triangular_feat
 def spectal_roloff(signal, sample_rate):
     return librosa.feature.spectral_rolloff(signal, sample_rate,)
 
-plt.specgram
 
 #TODO: rewrite it
 def spectral_centroid(signal, sample_rate):
@@ -143,9 +142,9 @@ def spectral_centroid(signal, sample_rate):
 
 
 class Sampler(object):
-    def __init__(self, source, duration = None, sample_rate = None):
+    def __init__(self, source, duration = None, sample_rate = None, offset = 0.0):
         if isinstance(source, basestring):
-            self.signal, self.sample_rate = librosa.load(source, duration=duration)
+            self.signal, self.sample_rate = librosa.load(source, duration=duration, offset=offset)
             if duration is None:
                 self.duration = librosa.get_duration(self.signal, sr=self.sample_rate)
             else:
@@ -262,8 +261,8 @@ def take_feature(part):
     return feature
 
 
-def convert(path, duration=30.0, half_part_length = 0.1):
-    whole_song = Sampler(path, duration=duration)
+def convert(path, duration=30.0, half_part_length = 0.1, offset = 0):
+    whole_song = Sampler(path, duration=duration,offset = offset)
     global song
     song = whole_song
 

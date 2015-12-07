@@ -5,22 +5,31 @@ import time
 from random import shuffle
 import scipy
 import scipy.signal
-import Sampler
+from Sampler import convert
 from spark_initializer import init_spark, get_spark_context
-import data_loader as loader
+from data_loader import Loader
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix as conf_matrix
 import pylab as pl
+import sklearn.svm as svm
+import helper
+from sklearn.cluster import KMeans
+from sklearn.naive_bayes import GaussianNB
+import pickle
+from sklearn.externals import joblib
 
-def convert_audio_to_csv(path):
+a = list()
+
+
+def convert_au_to_csv(path):
     for f in os.listdir(path):
         if f.endswith('.csv') or f.endswith(".npy"):
             continue
         if not f.endswith('.au'):
             place = path + '/' + f
             print "going to ", f
-            convert_audio_to_csv(place)
+            convert_au_to_csv(place)
         else:
             compute_feature_matrix(path, f)
 
@@ -30,47 +39,20 @@ def compute_feature_matrix(path, name):
     duration, half_part_length = 30., 0.03
     print "started to converting " + file_name
     t = time.time()
-    unscaled_features = Sampler.convert(file_name, duration,half_part_length)
+    unscaled_features = convert(file_name, duration,half_part_length)
     frame = pd.DataFrame(unscaled_features)
-    p = get_csv_path(path,name,'_features30new')
+    p = construct_csv_path(path, name, '_features30new')
     frame.to_csv(p)
     print name, " converted in " ,time.time() - t," saved as", p
 
-    '''
-    spectogram = librosa.feature.spectral_bandwidth(x,sr= fs,)[0]
-    plt.plot(spectogram)
-    plt.show()
-    pk = scipy.signal.find_peaks_cwt(spectogram, np.arange(0, 50))
-    print spectogram[pk]
-    tempo , beats = librosa.beat.beat_track(x, sr=fs)
-    plt.plot(beats)
-    plt.show()
-    '''
 
-    #mfcc_transform = librosa.feature.mfcc(x, sr=fs)
-    #mfcc_transform = scale_features(mfcc_transform)
-    #mean_values = mfcc_transform.mean(axis = 1)
-
-    #plt.plot(mean_values)
-    #plt.show()
-    #frame = pd.DataFrame(mean_values)
-    #p = get_csv_path(path, name, '_mean')
-    #frame.to_csv(p)
-
-    #a = librosa.feature.zero_crossing_rate(x)
-    #s = librosa.feature.melspectrogram(x,sr = fs)
-    #plt.hold(b = True)
-    #plt.plot(mfcc_transform)
-    #plt.show()
-
-
-def get_csv_path(path, filename,addition = "_treats", extra = ""):
+def construct_csv_path(path, filename, addition ="", extra =""):
     extension = '.csv'
     filename = "".join(filename.split(".")[0:-1])
     return "{0}/{1}{2}{3}{4}".format(path,filename,addition,extra,extension)
 
 
-def get_all_file_paths(folderName):
+def get_au_files(folderName):
     path_list = []
     for f in os.listdir(folderName):
         if f.endswith(".au"):
@@ -78,13 +60,13 @@ def get_all_file_paths(folderName):
     return path_list
 
 
-def convert_all(list_of_dirs, use_spark = False):
+def convert_all_au_in_directory(list_of_dirs, use_spark = False):
     if use_spark:
         init_spark()
         sc = get_spark_context()
     path = "/media/files/musicsamples/genres/"
     for el in list_of_dirs:
-        path_list = get_all_file_paths(path + '/' + el)
+        path_list = get_au_files(path + '/' + el)
         if not use_spark:
             [compute_feature_matrix(y[0],y[1]) for y in path_list]
         else:
@@ -124,51 +106,112 @@ def map_dataset(dataset, mapper):
     return mapped_dataset
 
 
-def separate(dataset):
-    return [t[0] for t in dataset], [t[1] for t in dataset]
+def fit_classifier(classifier, training_data, training_values):
+    classifier.fit(training_data, training_values)
 
 
-def test_it():
-
-    dataset_size = 100
-    test_size = 10
-
-    dataloader = loader.Loader(['rock','classical'],'30new.csv','/media/files/musicsamples/genres')
-    datasets = dataloader.get_dataset()
-    dv_pairs = []
-    for v in datasets.values():
-        dv_pairs.append(loader.combine_to_data_value_pair(v[0], v[1]))
-
-    genre_mapper = OrderedDict([
-        ('rock',0),
-        ('classical',1),
-        ('blues',2),
-        ('pop',3),
-        ('metal',4),
-        ('reggae',5),
-        ('country',6),
-        ('disco',7),
-        ('jazz',8)
-    ])
-
-    training_set, test_set = create_sets(dataset_size - test_size, dv_pairs)
-    training_set = map_dataset(training_set, genre_mapper)
-    test_set = map_dataset(test_set, genre_mapper)
-    import sklearn.svm as svm
-
-    nn = svm.SVC()
-
-    training_data, training_values = separate(training_set)
-    nn.fit(training_data, training_values)
-
-    N = len(genre_mapper)
-    confusion_matrix = np.zeros((N, N))
-
-    cm = conf_matrix([nn.predict(item[0])for item in test_set], [item[1] for item in test_set])
+def plot_confusion_matrix(classifier, test_set):
+    cm = conf_matrix([classifier.predict(item[0]) for item in test_set], [item[1] for item in test_set])
     pl.matshow(cm)
-    pl.title('Confusion matrix of the classifier')
+    pl.title('Confusion matrix of ' + str(type(classifier)))
     pl.colorbar()
     pl.show()
+
+
+def load_classifiers(root_dir = 'saved_classifiers'):
+    paths = []
+    for i in xrange(1,4):
+        paths.append(
+            os.path.join(root_dir, "classifier{0}.joblib".format(str(i)))
+            )
+    classifiers = []
+    for path in paths:
+        classifiers.append(joblib.load(path))
+    return classifiers
+
+
+def save_classifiers(classifiers, root_dir = 'saved_classifiers'):
+    for (i,c) in enumerate(classifiers):
+        joblib.dump(c, os.path.join(root_dir,"classifier{0}.joblib".format(str(i+1))))
+
+
+
+
+def test_it(path = None):
+    genre_mapper = OrderedDict([
+            ('rock', 0),
+            ('classical', 1),
+            ('blues', 2),
+            ('pop', 3),
+            ('metal', 4),
+            ('reggae', 5),
+            ('country', 6),
+            ('disco', 7),
+            ('jazz', 8)
+        ])
+
+    genre_unmapper = OrderedDict()
+
+    for (k,v) in genre_mapper.iteritems():
+        genre_unmapper[v] = k
+
+    if path is None:
+        dataset_size = 100
+        test_size = 20
+
+        dataloader = Loader(['rock','classical','jazz', 'blues','disco','country','pop','metal','reggae'],
+                            '30new.csv','/media/files/musicsamples/genres')
+        datasets = dataloader.get_dataset()
+        dv_pairs = []
+
+        for v in datasets.values():
+            dv_pairs.append(helper.combine_to_data_value_pair(v[0], v[1]))
+
+
+
+
+        training_set, test_set = create_sets(dataset_size - test_size, dv_pairs)
+        training_set = map_dataset(training_set, genre_mapper)
+        test_set = map_dataset(test_set, genre_mapper)
+
+        N = len(genre_mapper)
+        support_vector_machine = svm.SVC(C = 10**5)
+        kmeans = KMeans(n_clusters=N)
+        bayes = GaussianNB()
+
+        classifiers = [support_vector_machine,kmeans,bayes]
+
+        training_data, training_values = helper.separate_input_and_check_values(training_set)
+
+        #classifiers = load_classifiers()
+        for c in classifiers:
+            fit_classifier(c,training_data, training_values)
+            plot_confusion_matrix(c,test_set)
+
+        save_classifiers(classifiers)
+    else:
+
+        features = convert(path,duration=30, offset=25)
+        scaled_features = helper.scale_features(features)
+        variance = helper.deviation(scaled_features)
+        mean = helper.average(scaled_features)
+        prediction_vector = helper.combine_mean_and_variance(mean,variance)
+        classifiers = load_classifiers()
+        predictions= []
+        for c in classifiers:
+            prediction = c.predict(prediction_vector)[0]
+            print prediction
+            predictions.append(genre_unmapper[prediction])
+
+        print predictions
+        print [type(c) for c in classifiers]
+
+
+
+
+    '''
+    confusion_matrix = np.zeros((N, N))
+
     accuracy = [None] * N
     for i in xrange(N):
         true = confusion_matrix[i,i]
@@ -183,92 +226,34 @@ def test_it():
 
     print genre_mapper.keys()
     print genre_mapper.values()
-    genre_list = [k for (k,v) in genre_mapper.iteritems()]
-    for index in xrange(N):
-        print confusion_matrix[index,:],
-        print genre_list[index]
-    plt.imshow(confusion_matrix, interpolation='nearest')
-    plt.xticks(range(N), genre_list)
-    plt.yticks(range(N), genre_list)
-    plt.show()
 
+    print test_set[0][0], type(test_set[0][0]), test_set[0][0].shape
+    '''
+
+    #genre_list = [k for (k,v) in genre_mapper.iteritems()]
+    #for index in xrange(N):
+    #    print confusion_matrix[index,:],
+    #    print genre_list[index]
+    #plt.imshow(confusion_matrix, interpolation='nearest')
+    #plt.xticks(range(N), genre_list)
+    #plt.yticks(range(N), genre_list)
+    #plt.show()
 
 
 if __name__ == "__main__":
-    #convert_all(['hiphop','jazz','rock','blues','metal','pop','classical','reggae','disco','country'], False)
-    test_it()
+    '''
+    convert_all_au_in_directory(
+        ['hiphop','jazz','rock','blues','metal','pop','classical','reggae','disco','country'],
+        use_spark=False)
+    '''
+    #test_it()
+    testfile = '/media/files/musicsamples/Will1.wav'
+    test_it(testfile)
+
+
+
 
     #nn.save_synapse_to_file("synapses")
-    #spudi lalka sasai
-    #Will See how to sasi
-
-
-
-
-
-    '''
-    x, sr = librosa.load('/media/files/musicsamples/Cantaperme.wav')
-    #fft_tranform = scipy.fft(x)
-    #fft_tranform -= fft_tranform.mean()
-    #plt.plot(fft_tranform)
-    #plt.show()
-
-    #onset_envelope = librosa.onset.onset_detect(x)
-    #plt.plot(onset_envelope[0])
-    #plt.show()
-
-    tempo, beats = librosa.beat.beat_track(x,)
-    plt.plot()
-    plt.show()
-
-    centroid = librosa.feature.spectral_centroid(x,)
-    plt.plot(range(centroid.size), centroid.T)
-    plt.show()
-    librosa.feature.mfcc()
-    roloff = librosa.feature.spectral_rolloff(x,)
-
-    plt.plot(range(roloff.size),roloff.T)
-    plt.show()
-
-    #spectrogram = scipy.fft(x)
-    #spectral_flux = librosa.feature.spectral_contrast(spectrogram,n_bands=1)
-    #plt.plot(spectral_flux)
-    #plt.show()
-    #k = 8
-    zero_crossing_rate = librosa.feature.zero_crossing_rate(x)
-    zcr_for_file = zero_crossing_rate.sum()
-    print zcr_for_file
-    '''
-    '''
-    path_rock = "/media/files/musicsamples/genres/rock"
-    rock_data, rock_values = read_fft_features(path_rock,[1,0])
-    rock = zip(rock_data,rock_values)
-    path_classic = "/media/files/musicsamples/genres/classical"
-    class_data, class_value = read_fft_features(path_classic,[0,1])
-    classical = zip(class_data, class_value)
-    extended_list = rock[:-10]
-    extended_list.extend(classical[:-10])
-    shuffle(extended_list)
-    nn = NeuralNetwork(learning_rate=0.01, num_of_hidden_layers=5, hidden_layer_size=75)
-    data = [k[0] for k in extended_list]
-    values = [k[1] for k in extended_list]
-    nn.fit(data,values)
-    for i in xrange(10):
-        print nn.predict(rock[-i][0])
-        print rock[-i][1], " pop"
-        print nn.predict(classical[-i][0])
-        print classical[-i][1], " classical"
-
-    #nn.save_synapse_to_file("synapses")
-
-    path = "/media/files/musicsamples/genres"
-    current_path = path+"/jazz/jazz00000.csv"
-    data_frame = load_from_csv(current_path)
-    arr = data_frame.__array__()
-    for line_number in xrange(arr.shape[0]):
-        print line_number,": ",min(arr[line_number]), max(arr[line_number]), np.mean(arr[line_number])
-    '''
-
 
 
 
