@@ -19,7 +19,32 @@ from sklearn.naive_bayes import GaussianNB
 import pickle
 from sklearn.externals import joblib
 
-a = list()
+import audiotools
+
+
+def get_genre_mapper():
+    return OrderedDict([
+            ('rock', 0),
+            ('classical', 1),
+            ('blues', 2),
+            ('pop', 3),
+            ('metal', 4),
+            ('country', 5),
+            ('disco', 6),
+            ('jazz', 7)
+        ])
+
+def get_genre_unmapper():
+    mapper = get_genre_mapper()
+    genre_unmapper = OrderedDict()
+    for (k,v) in mapper.iteritems():
+        genre_unmapper[v] = k
+    return genre_unmapper
+
+
+def predict_genre(classifier, prediction_vector, genre_unmapper):
+    prediction = classifier.predict(prediction_vector)[0]
+    return genre_unmapper[prediction]
 
 
 def convert_au_to_csv(path):
@@ -135,31 +160,23 @@ def save_classifiers(classifiers, root_dir = 'saved_classifiers'):
         joblib.dump(c, os.path.join(root_dir,"classifier{0}.joblib".format(str(i+1))))
 
 
-
+def get_prediction_vector(path, duration = 20, offset = 30):
+        features = convert(path,duration=duration, offset=offset)
+        scaled_features = helper.scale_features(features)
+        variance = helper.deviation(scaled_features)
+        mean = helper.average(scaled_features)
+        prediction_vector = helper.combine_mean_and_variance(mean,variance)
+        return prediction_vector
 
 def test_it(path = None):
-    genre_mapper = OrderedDict([
-            ('rock', 0),
-            ('classical', 1),
-            ('blues', 2),
-            ('pop', 3),
-            ('metal', 4),
-            ('reggae', 5),
-            ('country', 6),
-            ('disco', 7),
-            ('jazz', 8)
-        ])
-
-    genre_unmapper = OrderedDict()
-
-    for (k,v) in genre_mapper.iteritems():
-        genre_unmapper[v] = k
+    genre_mapper = get_genre_mapper()
+    genre_unmapper = get_genre_unmapper()
 
     if path is None:
         dataset_size = 100
         test_size = 20
 
-        dataloader = Loader(['rock','classical','jazz', 'blues','disco','country','pop','metal','reggae'],
+        dataloader = Loader(['rock','classical','jazz', 'blues','disco','country','pop','metal'],
                             '30new.csv','/media/files/musicsamples/genres')
         datasets = dataloader.get_dataset()
         dv_pairs = []
@@ -190,18 +207,14 @@ def test_it(path = None):
 
         save_classifiers(classifiers)
     else:
-
-        features = convert(path,duration=30, offset=25)
-        scaled_features = helper.scale_features(features)
-        variance = helper.deviation(scaled_features)
-        mean = helper.average(scaled_features)
-        prediction_vector = helper.combine_mean_and_variance(mean,variance)
+        t = time.time()
+        prediction_vector = get_prediction_vector(path)
+        print time.time() - t
         classifiers = load_classifiers()
         predictions= []
         for c in classifiers:
-            prediction = c.predict(prediction_vector)[0]
-            print prediction
-            predictions.append(genre_unmapper[prediction])
+            predictions.append(
+                predict_genre(c,prediction_vector,genre_unmapper))
 
         print predictions
         print [type(c) for c in classifiers]
@@ -240,21 +253,13 @@ def test_it(path = None):
     #plt.show()
 
 
+
 if __name__ == "__main__":
     '''
     convert_all_au_in_directory(
         ['hiphop','jazz','rock','blues','metal','pop','classical','reggae','disco','country'],
         use_spark=False)
     '''
-    #test_it()
-    testfile = '/media/files/musicsamples/Will1.wav'
+    test_it()
+    testfile = '/media/files/musicsamples/converted_to_au/Rick Astley - Never gonna give you up (2001 ver).au'
     test_it(testfile)
-
-
-
-
-    #nn.save_synapse_to_file("synapses")
-
-
-
-

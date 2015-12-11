@@ -247,8 +247,8 @@ class Sampler(object):
 
 
 # start of process_converting
-'''
-# variable to store whole_song on a global lvl to call Sampler in take_feature
+
+#variable to store whole_song on a global lvl to call Sampler in take_feature
 
 global song
 
@@ -261,94 +261,17 @@ def take_feature(part):
     return feature
 
 
-def convert(path, duration=30.0, half_part_length = 0.1, offset = 0):
+def convert(path, duration=20.0, half_part_length = 0.1, offset = 0):
     whole_song = Sampler(path, duration=duration,offset = offset)
     global song
     song = whole_song
-
     parts = whole_song.split(half_part_length)
     part_arr = [np.append(parts[i-1], parts[i]) for i in xrange(1, len(parts))]
-
     pl = Pool(4)
     samples = pl.map(take_feature, part_arr)
     return np.array(samples)
-'''
 # end of process_converting
 
-
-# start of thread_converting
-
-# variables to store global parts, song and global array for sample-storing
-
-global part_arr, song, samples, thread_lock
-
-
-def take_feature(part):
-    global song
-    sample = Sampler(part, sample_rate=song.sample_rate)
-    sample.compute_features()
-    feature = sample.extract_features()
-    return feature
-
-
-class SampleThreadWithLock(threading.Thread):
-    def __init__(self, index):
-        threading.Thread.__init__(self)
-        self.id = index
-
-    def run(self):
-        global part_arr, samples, thread_lock
-        while len(part_arr) > 0:
-            thread_lock.acquire()
-            if len(part_arr) > 0:
-                samples.append(take_feature(part_arr[0]))
-            part_arr = part_arr[1:]
-            thread_lock.release()
-
-
-class SampleThread(threading.Thread):
-    def __init__(self, index):
-        threading.Thread.__init__(self)
-        self.id = index
-
-    def run(self):
-        global part_arr, samples
-        while len(part_arr) > 0:
-            temp = part_arr[0]
-            part_arr = part_arr[1:]
-            samples.append(take_feature(temp))
-
-
-def convert(path, duration=30.0, half_part_length=0.1):
-    global part_arr, thread_lock, song, samples
-
-    whole_song = Sampler(path, duration=duration)
-    song = whole_song
-
-    parts = whole_song.split(half_part_length)
-    part_arr = [np.append(parts[i-1], parts[i]) for i in xrange(1, len(parts))]
-
-    samples = []
-    thread_lock = threading.Lock()
-
-    threads = []
-
-    # uncomment one of two comments below and test it
-    for i in xrange(0, 4):
-        #thread = SampleThread()
-        #thread = SampleThreadWithLock()
-        threads.append(thread)
-        thread.start()
-
-    while len(part_arr) > 0:
-        pass
-
-    for i in xrange(0, 4):
-        threads[i].join()
-
-    return np.array(samples)
-
-# end of thread_converting
 
 '''
 def convert(path, duration = 20, half_part_length = 0.1):
