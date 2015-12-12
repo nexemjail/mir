@@ -1,10 +1,12 @@
 import os
+import time
+
+import DataValuePair
 import numpy as np
 import pandas as pd
 from librosa import feature, load
-from NN import NeuralNetwork
-import time
-import DataValuePair
+
+from trash.NN import NeuralNetwork
 
 
 def convert_audio_to_csv(path):

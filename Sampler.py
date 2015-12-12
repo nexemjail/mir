@@ -9,8 +9,9 @@ from math import log
 import pandas
 from multiprocessing import Pool
 import threading
+from multiprocessing import Process
 import scipy.signal.spectral
-
+import multiprocessing
 
 def compute_variance(signal, mean):
     N = len(signal)
@@ -248,8 +249,67 @@ class Sampler(object):
 
 # start of process_converting
 
-#variable to store whole_song on a global lvl to call Sampler in take_feature
+class QueueProcess(Process):
+    def __init__(self, task_queue, result_queue):
+        Process.__init__(self)
+        self.task_queue = task_queue
+        self.result_queue = result_queue
 
+    def run(self):
+        while True:
+            next_task = self.task_queue.get()
+            if next_task is None:
+                self.task_queue.task_done()
+                break
+            processed_value = take_feature(next_task)
+            #print  processed_value
+            self.task_queue.task_done()
+            self.result_queue.put(processed_value)
+
+
+def take_feature(part):
+    sample = Sampler(part, sample_rate=song.sample_rate)
+    sample.compute_features()
+    feature = sample.extract_features()
+    return feature
+
+
+def convert(path, duration=30.0, half_part_length=0.1,
+            offset = 30, num_processes = multiprocessing.cpu_count()):
+    global song
+
+    whole_song = Sampler(path, duration=duration, offset = offset)
+    song = whole_song
+
+    task_queue = multiprocessing.JoinableQueue()
+    results = multiprocessing.Queue()
+
+    parts = whole_song.split(half_part_length)
+    part_arr = [np.append(parts[i-1], parts[i]) for i in xrange(1, len(parts))]
+
+    for element in part_arr:
+        task_queue.put(element)
+    for _ in xrange(num_processes):
+        task_queue.put(None)
+
+    tasks = []
+    for i in xrange(num_processes):
+        process = QueueProcess(task_queue,results)
+        tasks.append(process)
+        process.start()
+
+    #while task_queue.qsize() > 0:
+        #print task_queue.qsize()
+    task_queue.join()
+
+    result_array = []
+    for i in xrange(len(part_arr)):
+            result_array.append(results.get())
+    result_array = np.asarray(result_array)
+    return result_array
+
+#variable to store whole_song on a global lvl to call Sampler in take_feature
+'''
 global song
 
 
@@ -267,24 +327,10 @@ def convert(path, duration=20.0, half_part_length = 0.1, offset = 0):
     song = whole_song
     parts = whole_song.split(half_part_length)
     part_arr = [np.append(parts[i-1], parts[i]) for i in xrange(1, len(parts))]
-    pl = Pool(4)
-    samples = pl.map(take_feature, part_arr)
+    #pl = Pool(4)
+    samples = map(take_feature, part_arr)
     return np.array(samples)
 # end of process_converting
-
-
-'''
-def convert(path, duration = 20, half_part_length = 0.1):
-    whole_song = Sampler(path, duration=duration)
-    parts = whole_song.split(half_part_length)
-    samples = []
-    for i in xrange(1, len(parts)):
-        part = np.append(parts[i-1], parts[i])
-        sample = Sampler(part, sample_rate=whole_song.sample_rate)
-        sample.compute_features()
-        features = sample.extract_features()
-        samples.append(features)
-    return np.array(samples)
 '''
 
 if __name__ == "__main__":

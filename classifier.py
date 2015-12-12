@@ -64,7 +64,7 @@ def compute_feature_matrix(path, name):
     duration, half_part_length = 30., 0.03
     print "started to converting " + file_name
     t = time.time()
-    unscaled_features = convert(file_name, duration,half_part_length)
+    unscaled_features = convert(file_name, duration,half_part_length,offset=0, num_processes=1)
     frame = pd.DataFrame(unscaled_features)
     p = construct_csv_path(path, name, '_features30new')
     frame.to_csv(p)
@@ -184,9 +184,6 @@ def test_it(path = None):
         for v in datasets.values():
             dv_pairs.append(helper.combine_to_data_value_pair(v[0], v[1]))
 
-
-
-
         training_set, test_set = create_sets(dataset_size - test_size, dv_pairs)
         training_set = map_dataset(training_set, genre_mapper)
         test_set = map_dataset(test_set, genre_mapper)
@@ -259,7 +256,7 @@ if __name__ == "__main__":
     convert_all_au_in_directory(
         ['hiphop','jazz','rock','blues','metal','pop','classical','reggae','disco','country'],
         use_spark=False)
-    '''
     test_it()
+    '''
     testfile = '/media/files/musicsamples/converted_to_au/Rick Astley - Never gonna give you up (2001 ver).au'
     test_it(testfile)
