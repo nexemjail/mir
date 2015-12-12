@@ -3,15 +3,16 @@ from Tkinter import *
 import tkFileDialog
 import os
 import sys
-from classifier import convert
+from process_parallelizer import convert_with_processes
 from classifier import get_prediction_vector, \
-    load_classifiers,predict_genre, get_genre_unmapper
+    load_classifiers,predict_genre
 from collections import defaultdict
 import time
 import numpy as np
 import vlc
 import threading
 import recommender
+from helper import get_genre_unmapper
 
 
 current_index = 0
@@ -151,7 +152,6 @@ if __name__ == "__main__":
     play_button.bind('<Button-1>', StartPlaying)
     button_like.bind('<Button-1>', Like)
     button_dislike.bind('<Button-1>', Dislike)
-
 
     loadBtn.place(x = 10, y = 10)
     quitBtn.place(x = 200, y = 10)

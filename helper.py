@@ -1,4 +1,29 @@
 import numpy as np
+from collections import OrderedDict
+
+
+def get_genre_mapper():
+    """
+    :rtype: OrderedDict
+    """
+    return OrderedDict([
+            ('rock', 0),
+            ('classical', 1),
+            ('blues', 2),
+            ('pop', 3),
+            ('metal', 4),
+            ('country', 5),
+            ('disco', 6),
+            ('jazz', 7)
+        ])
+
+
+def get_genre_unmapper():
+    mapper = get_genre_mapper()
+    genre_unmapper = OrderedDict()
+    for (k,v) in mapper.iteritems():
+        genre_unmapper[v] = k
+    return genre_unmapper
 
 
 def separate_input_and_check_values(dataset):

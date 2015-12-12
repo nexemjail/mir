@@ -3,6 +3,22 @@ import pandas as pd
 import time
 import os
 import helper
+import scipy
+
+
+def read_fft_features(path, value):
+    features = []
+    t = time.time()
+    for filename in os.listdir(path):
+        if filename.endswith(".npy"):
+            real_path = "{0}/{1}".format(path, filename)
+            fft_features = scipy.load(real_path)
+            features.append(np.asarray(fft_features[:1000]))
+    print time.time() - t
+    length = len(features)
+    data = np.array(features)
+    values = np.array([value] * length)
+    return data, values
 
 
 def read_features_from_path_list(path_list):
@@ -50,6 +66,5 @@ if __name__ == "__main__":
     datasets = loader.get_dataset()
     print datasets['rock']
     print datasets['pop']
-
 
 
