@@ -13,117 +13,117 @@ import vlc
 import threading
 import recommender
 from helper import get_genre_unmapper
+from threading import Thread
+import os
+from path_loader import scan_folders_for_au_files
+from classifier import predict_genre, load_svm
+from collections import defaultdict
+
+global files_by_genre_dict, playlist, current_song_genre, sound, classifier, genre_unmapper
+global user_prefs
 
 
-current_index = 0
-files_list = []
-sound = None
-classifiers = None
-predicted_genres = defaultdict(int)
-calculating_thread = None
-user_intrests = defaultdict(int)
-current_song_genre = None
-
-
-def Quit(ev):
+def quit(ev):
     global root
     root.destroy()
 
 
-def LoadFolder(ev):
-    fn = tkFileDialog.askdirectory(parent =root, mustexist = True,
-                                   initialdir = '/media/files/musicsamples')
-    global files_list
-    for file_name in os.listdir(fn):
-        if file_name.endswith('.au'):
-            full_path = os.path.join(fn, file_name)
-            files_list.append(full_path)
-            textbox.insert(END, full_path + '\n')
+def get_first_N_by_genre(genre_dict, N):
+    # we trunctate input dict
+    new_genre_dict = {}
+    for (genre_name,path_list) in genre_dict.iteritems():
+        len_required = N
+        avialable_len = len(genre_dict[genre_name])
+        if avialable_len < len_required :
+            len_required = avialable_len
+        new_genre_dict[genre_name] = genre_dict[genre_name][:len_required]
+        genre_dict[genre_name] = genre_dict[genre_name][len_required:]
+    return new_genre_dict
 
 
-def init_and_start(path):
-    sound = vlc.MediaPlayer(path)
-    sound.play()
-    return sound
+def get_paths(genre_dict):
+    playlist = []
+    for (genre_name, path_list) in genre_dict.iteritems():
+        playlist.extend(genre_dict[genre_name])
+    return playlist
 
-def get_user_rating():
-    user_intrests_list = list(user_intrests.items())
-    l = sorted(user_intrests_list,key = lambda x: x[1], reverse=True)
-    l = [el[0] for el in l if el[1] >= 0]
-    print '***U_R',l,'***'
-    return l
 
-def view_recommendations():
+def reset_text_view():
     textbox.delete(1.0, END)
-    recommendations = recommender.recommend(user_intrests,len(files_list)//2)
-    textbox.insert(END, str(recommendations))
+    for element in playlist:
+        textbox.insert(END, "{0}\n".format(element))
 
-def inc(index):
-    index += 1
-    if index > len(files_list):
-        global sound
-        sound.stop()
-        view_recommendations()
-    return index
 
-def predict_current_song_genre(index):
-    global predicted_genres, current_song_genre
+def load_folder(ev):
+    global files_by_genre_dict, playlist, classifier
+    fn = tkFileDialog.askdirectory(parent =root, mustexist = True,
+                                   initialdir = '/media/files/musicsamples/genres')
+    files_by_genre_dict = scan_folders_for_au_files(fn)
+    song_by_genre_dict = get_first_N_by_genre(files_by_genre_dict,2)
+    playlist = get_paths(song_by_genre_dict)
+    classifier = load_svm()
+    reset_text_view()
+
+
+def start_playing(ev):
+    global sound, current_song_genre
+    if sound is None:
+        sound = vlc.MediaPlayer(playlist[0])
+        sound.play()
+        predict(playlist[0],classifier)
+
+
+def get_next_path_or_none():
+    global playlist
+    if len(playlist) > 1:
+        playlist = playlist[1:]
+        reset_text_view()
+        return playlist[0]
+    return None
+
+
+def predict(path, classifier, duration = 3, offset = 10):
+    global current_song_genre
     t = time.time()
-    print 'taking features'
-    prediction_vector = get_prediction_vector(files_list[index], duration=20.0, offset=30)
-    print 'extracting_features_took ', time.time() - t
-    genre_unmapper = get_genre_unmapper()
-    for c in xrange(1):
-        genre = predict_genre(classifiers[0], prediction_vector, genre_unmapper)
-        current_song_genre = genre
-        print genre
-
-
-def StartPlaying(ev):
-    global current_index, sound, classifiers, predicted_genres, current_song_genre
-    if classifiers is None:
-        classifiers = load_classifiers()
-    next_song()
+    pv = get_prediction_vector(path, duration = duration,offset = offset)
+    prediction = classifier.predict(pv)[0]
+    current_song_genre = genre_unmapper[prediction]
+    print time.time() - t, ' took to predict ', current_song_genre
+    return current_song_genre
 
 
 def next_song():
-    global sound, current_index
-    if len(files_list) < 1 or current_index >= len(files_list):
-        print 'no files to play'
-        print recommender.recommend(user_intrests,len(files_list)//2)
-        view_recommendations()
-        if sound is not None:
-            sound.stop()
-    if sound is None:
-        sound = init_and_start(files_list[current_index])
-        predict_current_song_genre(current_index)
-        current_index = inc(current_index)
-    elif sound.is_playing():
+    print  user_prefs
+    global sound, playlist
+    if sound is not None:
         sound.stop()
-        sound = init_and_start(files_list[current_index])
-        predict_current_song_genre(current_index)
-        current_index = inc(current_index)
+        path = get_next_path_or_none()
+        if path is not None:
+            sound = vlc.MediaPlayer(path)
+            sound.play()
+            predict(path, classifier,)
 
 
-def magic():
-    get_user_rating()
-    print '---',recommender.recommend(user_intrests,len(files_list)//2), '------'
+def like(event):
+    if current_song_genre is not None:
+        user_prefs[current_song_genre] += 1
     next_song()
 
 
-def Like(event):
-    global user_intrests
+def dislike(event):
     if current_song_genre is not None:
-        user_intrests[current_song_genre] += 1
-        magic()
+        user_prefs[current_song_genre] -= 1
+    next_song()
 
-def Dislike(event):
-    global user_intrests
-    if current_song_genre is not None:
-        user_intrests[current_song_genre] -= 1
-        magic()
 
 if __name__ == "__main__":
+    # This is it
+    global genre_unmapper, classifier, user_prefs, sound, current_song_genre
+    sound = None
+    current_song_genre = None
+    genre_unmapper = get_genre_unmapper()
+    classifier = load_svm()
+    user_prefs = defaultdict(int)
 
     root = Tk()
     panelFrame = Frame(root, height = 60, bg = 'gray')
@@ -147,11 +147,11 @@ if __name__ == "__main__":
     button_like = Button(panelFrame, text = 'Like it!')
     button_dislike = Button(panelFrame, text = 'Dislike!')
 
-    loadBtn.bind("<Button-1>", LoadFolder)
-    quitBtn.bind("<Button-1>", Quit)
-    play_button.bind('<Button-1>', StartPlaying)
-    button_like.bind('<Button-1>', Like)
-    button_dislike.bind('<Button-1>', Dislike)
+    loadBtn.bind("<Button-1>", load_folder)
+    quitBtn.bind("<Button-1>", quit)
+    play_button.bind('<Button-1>', start_playing)
+    button_like.bind('<Button-1>', like)
+    button_dislike.bind('<Button-1>', dislike)
 
     loadBtn.place(x = 10, y = 10)
     quitBtn.place(x = 200, y = 10)

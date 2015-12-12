@@ -64,6 +64,10 @@ def convert_all_audio_in_directory(list_of_dirs, use_spark = False):
 
 
 if __name__ == "__main__":
+     # TODO : do not uncomment this or be broken!
+     '''
+
      convert_all_audio_in_directory(
-        ['hiphop','jazz','rock','blues','metal','pop','classical','disco','country'],
+        ['jazz','rock','blues','metal','pop','classical','disco','country'],
         use_spark=True)
+     '''

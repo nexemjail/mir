@@ -39,7 +39,7 @@ def get_names_list(directory, name_template):
     path_list = []
     for f in os.listdir(directory):
         if f.endswith(name_template):
-            path_list.append(directory + '/' + f)
+            path_list.append(os.path.join(directory,f))
     return path_list
 
 

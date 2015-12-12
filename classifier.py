@@ -49,6 +49,11 @@ def plot_confusion_matrix(classifier, test_set):
     pl.show()
 
 
+def load_svm(root_dir = 'saved_classifiers'):
+    path =  os.path.join(root_dir, "classifier{0}.joblib".format(1))
+    return joblib.load(path)
+
+
 def load_classifiers(root_dir = 'saved_classifiers'):
     paths = []
     for i in xrange(1,4):
