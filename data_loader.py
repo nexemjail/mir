@@ -62,7 +62,7 @@ class Loader(object):
 
 if __name__ == "__main__":
     path = '/media/files/musicsamples/genres/'
-    loader = Loader(['rock','pop'],'30new.csv',path)
+    loader = Loader(['rock','pop'],'_mfcc_scaled.csv',path)
     datasets = loader.get_dataset()
     print datasets['rock']
     print datasets['pop']

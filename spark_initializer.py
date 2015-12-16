@@ -8,9 +8,10 @@ def init_spark():
 
 
 def get_spark_context():
-    conf = SparkConf().set("spark.default.parallelism",4)\
-    .set("spark.executor.instances", 4)\
-    .set("spark.executor.memory", "2g")\
+    conf = SparkConf().set("spark.default.parallelism", '128')\
+    .set("spark.executor.instances", '8')\
+    .set("spark.executor.memory", "8g")\
+    .set("spark.python.worker.memory",'512mb')\
     .setMaster('master')
     sc = SparkContext('local[*]',conf = conf,)
     return sc

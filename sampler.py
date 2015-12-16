@@ -1,12 +1,9 @@
-import time
 import numpy as np
 import librosa
-import matplotlib.pyplot as plt
 import scipy
 import scipy.signal
 from math import sqrt
 from math import log
-import pandas
 import scipy.signal.spectral
 
 
@@ -67,7 +64,7 @@ def autocorellation(signal, sample_rate):
     return auto_corr, auto_corr/2
 
 
-def energy_entropy(signal, num_of_frames = 50):
+def energy_entropy(signal, num_of_frames = 22050 / 50):
     subframes = np.array_split(signal, num_of_frames)
     frame_energy = short_time_energy(signal)
     e = map(lambda (x, y): short_time_energy(y)/frame_energy,
@@ -184,6 +181,7 @@ class Sampler(object):
     def extract_features(self):
         vector = list()
         vector += [self.zero_crossing_rate]
+
         vector += [self.temporal_centroid]
         vector += [self.energy_entropy]
         vector += [self.root_mean_square]

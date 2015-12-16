@@ -30,7 +30,6 @@ def get_n_in_genre(genre_dict, genre, N):
 
 
 def get_n_in_all_genres(genre_dict, N):
-    # we trunctate input dict
     new_genre_dict = {}
     for genre_name in genre_dict.keys():
         new_genre_dict[genre_name], genre_dict[genre_name] \
@@ -57,6 +56,7 @@ def extend_playlist(extra_paths):
     shuffle(extra_paths)
     playlist.extend(extra_paths)
     reset_text_view()
+    #reset_text_view()
 
 
 def sort_user_prefs():
@@ -97,6 +97,8 @@ def start_playing(ev):
         sound = vlc.MediaPlayer(playlist[0])
         sound.play()
         predict(playlist[0],classifier)
+    else:
+        sound.pause()
 
 
 def get_next_path_or_none():
@@ -108,10 +110,11 @@ def get_next_path_or_none():
     return None
 
 
-def predict(path, classifier, duration = 3, offset = 10):
+def predict(path, classifier, duration = 20, offset = 10):
     global current_song_genre
+    current_song_genre = None
     t = time.time()
-    pv = get_prediction_vector(path, duration = duration,offset = offset)
+    pv = get_prediction_vector(path, duration = duration,offset = offset, half_part_length=0.03)
     prediction = classifier.predict(pv)[0]
     current_song_genre = genre_unmapper[prediction]
     print time.time() - t, ' took to predict ', current_song_genre
@@ -147,7 +150,6 @@ def dislike(event):
         user_prefs[current_song_genre] -= 1
     next_song()
 
-
 if __name__ == "__main__":
     # This is it
     global genre_unmapper, classifier, user_prefs, sound, current_song_genre, songs_played
@@ -174,12 +176,11 @@ if __name__ == "__main__":
     textbox.pack(side = 'left', fill = 'both', expand = 1)
     scrollbar.pack(side = 'right', fill = 'y')
 
-    play_button = Button(panelFrame, text='Start playing')
+    play_button = Button(panelFrame, text='Play/Pause')
     loadBtn = Button(panelFrame, text = 'Choose folder to play files')
     quitBtn = Button(panelFrame, text = 'Quit')
     button_like = Button(panelFrame, text = 'Like it!')
-    button_dislike = Button(panelFrame, text = 'Dislike!')
-
+    button_dislike =Button(panelFrame, text = 'Dislike!')
     loadBtn.bind("<Button-1>", load_folder)
     quitBtn.bind("<Button-1>", quit)
     play_button.bind('<Button-1>', start_playing)

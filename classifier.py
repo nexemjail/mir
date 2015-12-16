@@ -6,7 +6,7 @@ from sklearn.metrics import confusion_matrix as conf_matrix
 import pylab as pl
 import sklearn.svm as svm
 import helper
-
+import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.naive_bayes import GaussianNB
 from sklearn.externals import joblib
@@ -43,8 +43,14 @@ def fit_classifier(classifier, training_data, training_values):
 
 def plot_confusion_matrix(classifier, test_set):
     cm = conf_matrix([classifier.predict(item[0]) for item in test_set], [item[1] for item in test_set])
+    cm = cm.astype('float') / cm.sum(axis = 1)[:, np.newaxis]
     pl.matshow(cm)
-    pl.title('Confusion matrix of ' + str(type(classifier)))
+    marks = range(8)
+    genre_unmap = get_genre_unmapper()
+
+    plt.xticks(marks, [genre_unmap[m] for m in marks], rotation = 90)
+    plt.yticks(marks, [genre_unmap[m] for m in marks])
+
     pl.colorbar()
     pl.show()
 
@@ -71,8 +77,8 @@ def save_classifiers(classifiers, root_dir = 'saved_classifiers'):
         joblib.dump(c, os.path.join(root_dir,"classifier{0}.joblib".format(str(i+1))))
 
 
-def get_prediction_vector(path, duration = 20, offset = 30):
-        features = convert_with_processes(path, duration=duration, offset=offset)
+def get_prediction_vector(path, duration = 20, offset = 30, half_part_length = 0.05):
+        features = convert_with_processes(path, duration=duration, offset=offset,half_part_length=half_part_length)
         scaled_features = helper.scale_features(features)
         variance = helper.deviation(scaled_features)
         mean = helper.average(scaled_features)
@@ -86,9 +92,11 @@ def train_classifiers():
 
     dataset_size = 100
     test_size = 20
-
     dataloader = Loader(['rock','classical','jazz', 'blues','disco','country','pop','metal'],
-                        '30new.csv','/media/files/musicsamples/genres')
+                       '30new.csv','/media/files/musicsamples/genres')
+
+    #dataloader = Loader(['rock','classical','jazz', 'blues','disco','country','pop','metal'],
+    #                    '_mfcc_scaled.csv','/media/files/musicsamples/genres')
     datasets = dataloader.get_dataset()
     dv_pairs = []
 
