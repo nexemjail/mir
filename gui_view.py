@@ -15,7 +15,7 @@ global files_by_genre_dict, playlist, current_song_genre, sound, classifier, gen
 global user_prefs, songs_played
 
 
-def quit(ev):
+def quit():
     global root
     root.destroy()
 
@@ -67,6 +67,7 @@ def sort_user_prefs():
             new_prefs[k] = v
     user_prefs = new_prefs
 
+
 def get_recommendation():
     #TODO: put it here!
     global files_by_genre_dict,user_prefs
@@ -80,7 +81,7 @@ def get_recommendation():
     return recommendations
 
 
-def load_folder(ev):
+def load_folder():
     global files_by_genre_dict, playlist, classifier
     fn = tkFileDialog.askdirectory(parent =root, mustexist = True,
                                    initialdir = '/media/files/musicsamples/genres')
@@ -91,7 +92,7 @@ def load_folder(ev):
     reset_text_view()
 
 
-def start_playing(ev):
+def start_playing():
     global sound, current_song_genre,playlist
     if sound is None:
         sound = vlc.MediaPlayer(playlist[0])
@@ -110,14 +111,29 @@ def get_next_path_or_none():
     return None
 
 
-def predict(path, classifier, duration = 20, offset = 10):
-    global current_song_genre
+def set_button_state(b_list,enabled):
+    if enabled:
+        c_state = 'normal'
+    else:
+        c_state = 'disabled'
+    for b in b_list:
+        b.config(state = c_state)
+    root.update()
+
+
+def predict(path, classifier, duration = 5, offset = 10):
+    global current_song_genre,button_play, button_like, button_dislike, quitBtn
+    b_list = [button_like, button_dislike, button_play, quitBtn]
+    set_button_state(b_list, False)
+
     current_song_genre = None
     t = time.time()
     pv = get_prediction_vector(path, duration = duration,offset = offset, half_part_length=0.03)
     prediction = classifier.predict(pv)[0]
     current_song_genre = genre_unmapper[prediction]
     print time.time() - t, ' took to predict ', current_song_genre
+    set_button_state(b_list, True)
+
     return current_song_genre
 
 
@@ -137,14 +153,14 @@ def next_song():
             predict(path, classifier,)
 
 
-def like(event):
+def like():
     global user_prefs
     if current_song_genre is not None:
         user_prefs[current_song_genre] += 1
     next_song()
 
 
-def dislike(event):
+def dislike():
     global user_prefs
     if current_song_genre is not None:
         user_prefs[current_song_genre] -= 1
@@ -176,21 +192,17 @@ if __name__ == "__main__":
     textbox.pack(side = 'left', fill = 'both', expand = 1)
     scrollbar.pack(side = 'right', fill = 'y')
 
-    play_button = Button(panelFrame, text='Play/Pause')
-    loadBtn = Button(panelFrame, text = 'Choose folder to play files')
-    quitBtn = Button(panelFrame, text = 'Quit')
-    button_like = Button(panelFrame, text = 'Like it!')
-    button_dislike =Button(panelFrame, text = 'Dislike!')
-    loadBtn.bind("<Button-1>", load_folder)
-    quitBtn.bind("<Button-1>", quit)
-    play_button.bind('<Button-1>', start_playing)
-    button_like.bind('<Button-1>', like)
-    button_dislike.bind('<Button-1>', dislike)
+    button_play = Button(panelFrame, text='Play/Pause', command = start_playing)
+    loadBtn = Button(panelFrame, text = 'Choose folder to play files',command =load_folder)
+    quitBtn = Button(panelFrame, text = 'Quit',command =quit)
+    button_like = Button(panelFrame, text = 'Like it!',command =like)
+    button_dislike =Button(panelFrame, text = 'Dislike!',command =dislike)
 
     loadBtn.place(x = 10, y = 10)
     quitBtn.place(x = 200, y = 10)
-    play_button.place(x = 250, y= 10)
+    button_play.place(x = 250, y= 10)
     button_like.place(x = 450, y = 10)
     button_dislike.place(x = 550, y = 10)
 
     root.mainloop()
+

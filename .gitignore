@@ -3,7 +3,8 @@ trash/
 saved_classifiers/
 synapses/
 __init__.py
-
+.idea/
+.fuse*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

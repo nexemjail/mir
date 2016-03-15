@@ -21,7 +21,7 @@ def convert_with_processes(file_path, duration=30.0, half_part_length=0.1,
         task_queue.put(None)
 
     tasks = []
-    for i in xrange(num_processes):
+    for _ in xrange(num_processes):
         process = QueueProcess(task_queue, results, take_feature)
         tasks.append(process)
         process.start()

@@ -181,7 +181,6 @@ class Sampler(object):
     def extract_features(self):
         vector = list()
         vector += [self.zero_crossing_rate]
-
         vector += [self.temporal_centroid]
         vector += [self.energy_entropy]
         vector += [self.root_mean_square]
