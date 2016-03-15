@@ -1,6 +1,10 @@
-<<<<<<< .merge_file_a05716
-.fuse_hidden0000234100000002
-=======
+pyspark/
+trash/
+saved_classifiers/
+synapses/
+__init__.py
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -54,6 +58,13 @@ coverage.xml
 
 # Django stuff:
 *.log
+local_settings.py
+
+# Flask instance folder
+instance/
+
+# Scrapy stuff:
+.scrapy
 
 # Sphinx documentation
 docs/_build/
@@ -61,7 +72,21 @@ docs/_build/
 # PyBuilder
 target/
 
-spark_path.py
->>>>>>> .merge_file_a05996
-.idea/*
-.fuse_hidden0000207300000003
+# IPython Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# dotenv
+.env
+
+# virtualenv
+venv/
+ENV/
+
+# Spyder project settings
+.spyderproject
